@@ -1,4 +1,4 @@
-package com.studentlearningapp
+package `in`.eddva.coaching
 
 import android.app.Application
 import com.facebook.react.PackageList

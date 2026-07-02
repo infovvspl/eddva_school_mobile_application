@@ -14,7 +14,7 @@ if linkage != nil
   use_frameworks! :linkage => linkage.to_sym
 end
 
-target 'StudentLearningApp' do
+target 'EDDVA' do
   config = use_native_modules!
 
   permissions_path = '../node_modules/react-native-permissions/ios'
