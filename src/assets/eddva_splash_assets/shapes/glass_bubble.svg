@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" fill="none" stroke-linecap="round" stroke-linejoin="round">
+<defs><filter id="s" x="-30%" y="-30%" width="160%" height="160%"><feDropShadow dx="0" dy="8" stdDeviation="8" flood-color="#013889" flood-opacity="0.18"/></filter><radialGradient id="g" cx="30%" cy="20%"><stop offset="0" stop-color="#FFFFFF"/><stop offset="1" stop-color="#F5FAFF"/></radialGradient></defs>
+<circle cx="64" cy="64" r="50" fill="url(#g)" stroke="#D9EDFF" stroke-width="3" filter="url(#s)"/>
+<circle cx="45" cy="38" r="14" fill="#FFFFFF" opacity=".65"/>
+</svg>
