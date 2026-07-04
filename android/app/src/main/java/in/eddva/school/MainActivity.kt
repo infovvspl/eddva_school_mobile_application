@@ -1,4 +1,4 @@
-package com.schoolstudentportal
+package `in`.eddva.school
 
 import com.facebook.react.ReactActivity
 import com.facebook.react.ReactActivityDelegate

@@ -1,4 +1,4 @@
-package com.schoolstudentportal
+package `in`.eddva.school
 
 import android.app.Application
 import com.facebook.react.PackageList
