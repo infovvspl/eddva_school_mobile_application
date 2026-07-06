@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 /**
 
  * Responsive scaling — design baseline iPhone X (375 × 812).
@@ -300,3 +301,19 @@ export const textFamily = {
 
   bold: { fontFamily: Fonts.bold } as TextStyle,
 };
+=======
+import { Dimensions } from 'react-native';
+
+const { width, height } = Dimensions.get('window');
+
+const guidelineBaseWidth = 375;
+const guidelineBaseHeight = 812;
+
+export const horizontalScale = (size: number): number => (width / guidelineBaseWidth) * size;
+export const verticalScale = (size: number): number => (height / guidelineBaseHeight) * size;
+export const moderateScale = (size: number, factor = 0.5): number => size + (horizontalScale(size) - size) * factor;
+
+export const hs = horizontalScale;
+export const vs = verticalScale;
+export const ms = moderateScale;
+>>>>>>> 17e1994 (bhagyasree changes)

@@ -1,7 +1,11 @@
 <resources>
 <<<<<<< HEAD
+<<<<<<< HEAD
     <string name="app_name">EDDVA</string>
 =======
     <string name="app_name">SchoolStudentPortalNative</string>
 >>>>>>> 19c8277 (Initial commit)
+=======
+    <string name="app_name">Eddva School</string>
+>>>>>>> 17e1994 (bhagyasree changes)
 </resources>
