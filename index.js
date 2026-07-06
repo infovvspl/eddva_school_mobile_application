@@ -2,6 +2,7 @@
  * @format
  */
 
+<<<<<<< HEAD
 import { AppRegistry } from 'react-native';
 import App from './App';
 import { name as appName } from './app.json';
@@ -34,5 +35,10 @@ try {
 } catch {
   /* Firebase not linked */
 }
+=======
+import {AppRegistry} from 'react-native';
+import App from './App';
+import {name as appName} from './app.json';
+>>>>>>> 19c8277 (Initial commit)
 
 AppRegistry.registerComponent(appName, () => App);

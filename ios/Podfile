@@ -14,6 +14,7 @@ if linkage != nil
   use_frameworks! :linkage => linkage.to_sym
 end
 
+<<<<<<< HEAD
 target 'EDDVA' do
   config = use_native_modules!
 
@@ -21,13 +22,28 @@ target 'EDDVA' do
   pod 'Permission-Notifications', :path => "#{permissions_path}/Notifications"
   pod 'Permission-LocationWhenInUse', :path => "#{permissions_path}/LocationWhenInUse"
 
+=======
+target 'SchoolStudentPortalNative' do
+  config = use_native_modules!
+
+>>>>>>> 19c8277 (Initial commit)
   use_react_native!(
     :path => config[:reactNativePath],
     # An absolute path to your application root.
     :app_path => "#{Pod::Config.instance.installation_root}/.."
   )
 
+<<<<<<< HEAD
   post_install do |installer|
+=======
+  target 'SchoolStudentPortalNativeTests' do
+    inherit! :complete
+    # Pods for testing
+  end
+
+  post_install do |installer|
+    # https://github.com/facebook/react-native/blob/main/packages/react-native/scripts/react_native_pods.rb#L197-L202
+>>>>>>> 19c8277 (Initial commit)
     react_native_post_install(
       installer,
       config[:reactNativePath],
