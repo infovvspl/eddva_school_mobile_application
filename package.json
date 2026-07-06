@@ -25,7 +25,7 @@
     "katex": "^0.17.0",
     "lucide-react-native": "^1.16.0",
     "react": "19.2.3",
-    "react-dom": "^19.2.6",
+    "react-dom": "19.2.3",
     "react-native": "0.85.3",
     "react-native-agora": "^4.6.2",
     "react-native-geolocation-service": "^5.3.1",
@@ -41,10 +41,8 @@
     "react-native-web": "^0.21.2",
     "react-native-webview": "^14.0.1",
     "react-scripts": "^5.0.1"
-    "lint": "eslint .",
-    "start": "react-native start",
-    "test": "jest"
   },
+  "devDependencies": {
     "@react-native-community/cli": "20.1.0",
     "@react-native-community/cli-platform-android": "20.1.0",
     "@react-native-community/cli-platform-ios": "20.1.0",
