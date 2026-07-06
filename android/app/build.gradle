@@ -82,9 +82,9 @@ android {
     buildToolsVersion rootProject.ext.buildToolsVersion
     compileSdk rootProject.ext.compileSdkVersion
 
-    namespace "in.eddva.coaching"
+    namespace "in.eddva.school"
     defaultConfig {
-        applicationId "in.eddva.coaching"
+        applicationId "in.eddva.school"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 8
