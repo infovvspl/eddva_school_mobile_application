@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 import React, { useEffect, useRef, useState } from 'react';
 import {
   View,
@@ -99,73 +98,6 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
       }
     } finally {
       setLoading(false);
-=======
-import React, { useState } from 'react';
-import { 
-  StyleSheet, 
-  Text, 
-  TextInput, 
-  View, 
-  KeyboardAvoidingView, 
-  Platform, 
-  TouchableOpacity, 
-  Image,
-  ActivityIndicator,
-  Alert
-} from 'react-native';
-import { Mail, Lock, Eye, Check } from 'lucide-react-native';
-import { hs, vs, ms } from '../utils/responsive';
-
-const API_BASE_URL = 'https://dev-api.eddva.in/api/v1';
-
-export function LoginScreen({
-  onLogin,
-  theme,
-}: {
-  onLogin: () => void;
-  theme: { background: string; surface: string; text: string; subtext: string; primary: string; primarySoft: string; border: string; accent: string };
-}) {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [rememberMe, setRememberMe] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const handleLogin = async () => {
-    if (!email || !password) {
-      setError('Please enter both email and password.');
-      return;
-    }
-
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      const response = await fetch(`${API_BASE_URL}/school/auth/login`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json'
-        },
-        body: JSON.stringify({ email, password }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || 'Invalid credentials. Please try again.');
-      }
-
-      // Successful login
-      // TODO: Save token to AsyncStorage or SecureStore here if needed
-      console.log('Login successful:', data);
-      onLogin(); // Navigate to main app
-    } catch (err: any) {
-      setError(err.message || 'An error occurred during login.');
-    } finally {
-      setIsLoading(false);
->>>>>>> 17e1994 (bhagyasree changes)
     }
   };
 
