@@ -22,7 +22,7 @@ export function TeacherTimetableScreen({ onNavigate }: any) {
 
         if (records.length === 0) {
           records = [
-            { id: 't1', time: '09:00 AM - 10:00 AM', subject: 'Mathematics', class: 'Class 10 A', room: 'Room 204' },
+            { id: 't1', time: '09:00  AM - 10:00 AM', subject: 'Mathematics', class: 'Class 10 A', room: 'Room 204' },
             { id: 't2', time: '10:15 AM - 11:15 AM', subject: 'Physics', class: 'Class 9 B', room: 'Lab 1' },
             { id: 't3', time: '11:30 AM - 12:30 PM', subject: 'Mathematics', class: 'Class 10 C', room: 'Room 205' },
           ];
