@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import { hs, vs, ms } from '../utils/responsive';
 import { ArrowRight } from 'lucide-react-native';
+import { useAppTheme } from '../context/ThemeContext';
 
 type IntroSlide = {
   id: string;
@@ -43,9 +44,11 @@ const INTRO_SLIDES: IntroSlide[] = [
 export function OnboardingScreen({
   onContinue,
 }: {
-  theme: { background: string; surface: string; text: string; subtext: string; primary: string; primarySoft: string; border: string; accent: string };
   onContinue: () => void;
 }) {
+  const { theme } = useAppTheme();
+  const { isDarkMode, toggleTheme } = useAppTheme();
+  const styles = getStyles(theme);
   const { width: slideWidth } = useWindowDimensions();
   const listRef = useRef<FlatList<IntroSlide>>(null);
   const [index, setIndex] = useState(0);
@@ -124,14 +127,13 @@ export function OnboardingScreen({
           {INTRO_SLIDES.map((s, i) => (
             <View key={s.id} style={[styles.dot, i === index && styles.dotActive]} />
           ))}
-          {/* Third dot placeholder to match the reference mockup which has 3 dots */}
-          <View style={[styles.dot, index === 2 && styles.dotActive]} /> 
+ 
         </View>
         
         {/* Right Arrow Button */}
         <View style={styles.footerSpacer}>
           <TouchableOpacity style={styles.nextBtn} onPress={goNext} activeOpacity={0.8}>
-            <ArrowRight size={24} color="#FFF" />
+            <ArrowRight size={24} color={theme.surface} />
           </TouchableOpacity>
         </View>
       </View>
@@ -140,10 +142,10 @@ export function OnboardingScreen({
 }
 
 
-const styles = StyleSheet.create({
+const getStyles = (theme: any) => StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: theme.surface,
   },
   header: {
     flexDirection: 'row',
@@ -159,12 +161,12 @@ const styles = StyleSheet.create({
   skipText: {
     fontFamily: 'Poppins-Medium',
     fontSize: ms(16),
-    color: '#475569',
+    color: theme.subtext,
   },
   slide: {
     flex: 1,
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: theme.surface,
   },
   imageContainer: {
     width: '100%',
@@ -187,7 +189,7 @@ const styles = StyleSheet.create({
   titleTop: {
     fontFamily: 'Poppins-Bold',
     fontSize: ms(32),
-    color: '#0F172A',
+    color: theme.text,
     textAlign: 'center',
     lineHeight: ms(40),
   },
@@ -202,7 +204,7 @@ const styles = StyleSheet.create({
   desc: {
     fontFamily: 'Poppins-Regular',
     fontSize: ms(15),
-    color: '#64748B',
+    color: theme.subtext,
     textAlign: 'center',
     lineHeight: ms(24),
   },
@@ -228,7 +230,7 @@ const styles = StyleSheet.create({
     width: ms(10),
     height: ms(10),
     borderRadius: ms(5),
-    backgroundColor: '#E2E8F0',
+    backgroundColor: theme.border,
   },
   dotActive: {
     backgroundColor: '#6366F1', // Purple color

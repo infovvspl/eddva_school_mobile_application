@@ -1,0 +1,300 @@
+const BASE_URL = 'https://api.eddva.in/api/v1';
+const AI_BASE_URL = BASE_URL;
+
+let currentToken = '';
+
+export const setAuthToken = (token: string) => {
+  currentToken = token;
+
+};
+
+// Helper to get auth token
+const getAuthToken = async () => {
+  return currentToken; 
+
+};
+
+export const fetchApi = async (endpoint: string, options: RequestInit = {}, isAiEngine = false) => {
+  const baseUrl = isAiEngine ? AI_BASE_URL : BASE_URL;
+  const url = `${baseUrl}${endpoint}`;
+  
+  const token = await getAuthToken();
+
+  const headers = {
+    'Content-Type': 'application/json',
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    ...options.headers,
+  };
+
+  try {
+    const response = await fetch(url, {
+      ...options,
+      headers,
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.message || 'API Error');
+    }
+
+    return await response.json();
+  } catch (error) {
+    throw error;
+  }
+};
+
+export const schoolApi = {
+  // --- AUTH ---
+  login: (data: any) => fetchApi('/school/auth/login', { method: 'POST', body: JSON.stringify(data) }),
+  register: (data: any) => fetchApi('/school/auth/register', { method: 'POST', body: JSON.stringify(data) }),
+  logout: () => { currentToken = ''; return Promise.resolve(); },
+
+  // --- CORE SYSTEM ---
+  getProfile: () => fetchApi('/school/students/dashboard'),
+  getDashboardStats: () => fetchApi('/school/students/dashboard'),
+  getTimetable: () => fetchApi('/school/timetables/student/me'),
+  listTimetables: () => fetchApi('/school/timetables'),
+  getMyProfile: () => fetchApi('/school/students/profile/me'),
+  getMyCourses: () => fetchApi('/school/students/courses/my'),
+  getCourseCurriculum: (classId: string) => fetchApi(`/school/students/courses/${classId}`),
+  getStudentStats: () => fetchApi('/school/students/stats'),
+  getAttendance: () => fetchApi('/school/attendance'),
+  getAttendanceReport: () => fetchApi('/school/attendance/report'),
+  getAttendanceHistory: () => fetchApi('/school/attendance/history'),
+  getMyAnalytics: () => fetchApi('/school/reports/my-analytics'),
+  getStudentReport: () => fetchApi('/school/reports/student'),
+  getAssessmentReport: () => fetchApi('/school/reports/assessment'),
+  
+  getCareers: () => fetchApi('/school/career/explore'),
+  getCareerGuidance: () => fetchApi('/school/career/quiz/status'),
+  saveCareer: (id: string) => fetchApi(`/school/career/${id}/save`, { method: 'POST' }),
+  getCareerQuizQuestions: () => fetchApi('/school/career/quiz/questions'),
+  submitCareerQuiz: (data: any) => fetchApi('/school/career/quiz/submit', { method: 'POST', body: JSON.stringify(data) }),
+  generateCareerReport: () => fetchApi('/school/career/report/generate', { method: 'POST' }),
+  getCareerReport: () => fetchApi('/school/career/report'),
+  exploreCareerDetails: (careerId: string) => fetchApi(`/school/career/explore/${careerId}`),
+
+  createStudent: (data: any) => fetchApi('/school/students', { method: 'POST', body: JSON.stringify(data) }),
+  updateStudent: (id: string, data: any) => fetchApi(`/school/students/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  deleteStudent: (id: string) => fetchApi(`/school/students/${id}`, { method: 'DELETE' }),
+  getStudent: (id: string) => fetchApi(`/school/students/${id}`),
+
+  // --- ASSIGNMENTS & ASSESSMENTS (Shared) ---
+  getAssignments: () => fetchApi('/school/assignments'),
+  getAssessments: () => fetchApi('/school/assessments'),
+  startAssessmentAttempt: (id: string, data: any = {}) => fetchApi(`/school/assessments/${id}/start`, { method: 'POST', body: JSON.stringify(data) }),
+  saveAssessmentAnswer: (id: string, data: any) => fetchApi(`/school/assessments/${id}/answer`, { method: 'POST', body: JSON.stringify(data) }),
+  submitAssessment: (id: string, data: any = {}) => fetchApi(`/school/assessments/${id}/submit`, { method: 'POST', body: JSON.stringify(data) }),
+  getMyAssessmentSubmission: (id: string) => fetchApi(`/school/assessments/${id}/my-submission`),
+  
+  // --- LEARN TAB (Shared) ---
+  getRecordings: () => fetchApi('/school/classes/recordings'),
+  getRecordingProgress: (id: string) => fetchApi(`/school/classes/recordings/${id}/progress`),
+  upsertRecordingProgress: (id: string, data: any) => fetchApi(`/school/classes/recordings/${id}/progress`, { method: 'POST', body: JSON.stringify(data) }),
+  submitVideoQuizResponse: (id: string, data: any) => fetchApi(`/school/classes/recordings/${id}/quiz-response`, { method: 'POST', body: JSON.stringify(data) }),
+  getMaterials: () => fetchApi('/school/materials'),
+  getMaterialDetails: (id: string) => fetchApi(`/school/materials/${id}`),
+  getMaterialHighlights: (id: string) => fetchApi(`/school/materials/${id}/highlights`),
+  saveMaterialHighlight: (id: string, data: any) => fetchApi(`/school/materials/${id}/highlights`, { method: 'POST', body: JSON.stringify(data) }),
+  downloadMaterial: (id: string) => fetchApi(`/school/materials/${id}/download`),
+  getDoubts: () => fetchApi('/school/doubts'),
+  startAiTutor: (data: any) => fetchApi('/tutor/session', { method: 'POST', body: JSON.stringify(data) }, true),
+
+  // --- DISCOVER TAB (Shared) ---
+  getEvents: () => fetchApi('/school/calendar/events'),
+  getPlatformNotices: () => fetchApi('/school/notices/platform'),
+  
+  // --- NOTIFICATIONS ---
+  getNotifications: () => fetchApi('/school/notifications'),
+  getUnreadNotificationsCount: () => fetchApi('/school/notifications/unread-count'),
+  markNotificationRead: (id: string) => fetchApi(`/school/notifications/${id}/read`, { method: 'PATCH' }),
+
+  // --- GAMIFICATION & ARCADE ---
+  // Quiz Rush
+  startQuizRush: () => fetchApi('/school/gamification/quiz-rush/start'),
+  submitQuizRush: (data: any) => fetchApi('/school/gamification/quiz-rush/submit', { method: 'POST', body: JSON.stringify(data) }),
+  getQuizRushLeaderboard: () => fetchApi('/school/gamification/quiz-rush/leaderboard'), 
+  
+  // Treasure Map
+  getTreasureMaps: () => fetchApi('/school/gamification/treasure/maps'),
+  getTreasureChallenge: () => fetchApi('/school/gamification/treasure/challenge'),
+  completeTreasureStage: (data: any) => fetchApi('/school/gamification/treasure/complete', { method: 'POST', body: JSON.stringify(data) }),
+
+  // Math Sprint
+  startMathSprint: () => fetchApi('/school/gamification/math-sprint/start'),
+  submitMathSprint: (data: any) => fetchApi('/school/gamification/math-sprint/submit', { method: 'POST', body: JSON.stringify(data) }),
+  getMathSprintLeaderboard: () => fetchApi('/school/gamification/math-sprint/leaderboard'),
+
+  // Memory Match
+  getMemoryMatchDecks: () => fetchApi('/school/gamification/memory-match/decks'),
+  startMemoryMatch: () => fetchApi('/school/gamification/memory-match/start'),
+  submitMemoryMatch: (data: any) => fetchApi('/school/gamification/memory-match/submit', { method: 'POST', body: JSON.stringify(data) }),
+  getMemoryMatchLeaderboard: () => fetchApi('/school/gamification/memory-match/leaderboard'),
+
+  // Word Master
+  getWordMasterDecks: () => fetchApi('/school/gamification/word-master/decks'),
+  startWordMaster: () => fetchApi('/school/gamification/word-master/start'),
+  submitWordMaster: (data: any) => fetchApi('/school/gamification/word-master/submit', { method: 'POST', body: JSON.stringify(data) }),
+  getWordMasterLeaderboard: () => fetchApi('/school/gamification/word-master/leaderboard'),
+
+  // --- DOUBTS ---
+  getDoubtDetails: (id: string) => fetchApi(`/school/doubts/${id}`),
+  getDoubtStats: () => fetchApi('/school/doubts/stats'),
+  createDoubt: (data: any) => fetchApi('/school/doubts', { method: 'POST', body: JSON.stringify(data) }),
+  getDoubtUploadUrl: (data: any) => fetchApi('/school/doubts/upload-url', { method: 'POST', body: JSON.stringify(data) }),
+  getMyDoubts: () => fetchApi('/school/doubts/my-doubts'),
+  replyToDoubt: (id: string, data: any) => fetchApi(`/school/doubts/${id}/reply`, { method: 'POST', body: JSON.stringify(data) }),
+  resolveDoubt: (id: string) => fetchApi(`/school/doubts/${id}/resolve`, { method: 'PATCH' }),
+  escalateDoubt: (id: string) => fetchApi(`/school/doubts/${id}/escalate`, { method: 'POST' }),
+  markDoubtHelpful: (id: string, data: any) => fetchApi(`/school/doubts/${id}/helpful`, { method: 'PATCH', body: JSON.stringify(data) }),
+  getAiDoubtSuggestion: (id: string) => fetchApi(`/school/doubts/${id}/ai-suggest`, { method: 'POST' }),
+
+  // --- CLASSES ---
+  getClasses: () => fetchApi('/school/classes'),
+  getClassDetails: (id: string) => fetchApi(`/school/classes/${id}`),
+  getClassSubjects: (id: string) => fetchApi(`/school/classes/${id}/subjects`),
+  getClassTeachers: (id: string) => fetchApi(`/school/classes/${id}/teachers`),
+  getClassStudents: (id: string) => fetchApi(`/school/classes/${id}/students`),
+
+  // --- SUBJECTS & TOPICS ---
+  getSubjects: () => fetchApi('/school/subjects'),
+  getSubjectDetails: (id: string) => fetchApi(`/school/subjects/${id}`),
+  getClassSubjectsList: (classId: string) => fetchApi(`/school/subjects/class/${classId}`),
+  getSubjectStats: (id: string) => fetchApi(`/school/subjects/${id}/stats`),
+  getTopics: () => fetchApi('/school/topics'),
+  getTopicDetails: (id: string) => fetchApi(`/school/topics/${id}`),
+
+  // --- LIVE CLASSES ---
+  getLiveClassDetails: (id: string) => fetchApi(`/school/live/${id}`),
+  getPastLiveClasses: () => fetchApi('/school/live/recorded'),
+  getLiveClassAttendance: (id: string) => fetchApi(`/school/live/${id}/attendance`),
+  getLiveClassPolls: (id: string) => fetchApi(`/school/live/${id}/polls`),
+  getUpcomingLiveClasses: () => fetchApi('/school/live/student/upcoming'),
+  joinLiveClass: (id: string) => fetchApi(`/school/live/${id}/join`, { method: 'POST' }),
+
+  // --- RECORDING HIGHLIGHTS ---
+  getRecordingHighlights: () => fetchApi('/school/recording-highlights'),
+
+  // --- ASSIGNMENTS ---
+  getAssignmentDetails: (id: string) => fetchApi(`/school/assignments/${id}`),
+  getAssignmentSubmissions: (id: string) => fetchApi(`/school/assignments/${id}/submissions`),
+  submitAssignment: (id: string, data: any) => fetchApi(`/school/assignments/${id}/submit`, { method: 'POST', body: JSON.stringify(data) }),
+
+  // --- PREVIOUS YEAR QUESTIONS (PYQ) ---
+  getTopicPyqsOverview: (topicId: string) => fetchApi(`/assessments/topics/${topicId}/pyqs/overview`),
+  getTopicPyqs: (topicId: string) => fetchApi(`/assessments/topics/${topicId}/pyqs`),
+  submitTopicPyq: (topicId: string, questionId: string, data: any) => fetchApi(`/assessments/topics/${topicId}/pyqs/${questionId}/submit`, { method: 'POST', body: JSON.stringify(data) }),
+  startPyqSession: (topicId: string, data: any) => fetchApi(`/assessments/topics/${topicId}/pyqs/start-session`, { method: 'POST', body: JSON.stringify(data) }),
+  getPyqProgress: (topicId: string) => fetchApi(`/assessments/topics/${topicId}/pyqs/my-progress`),
+  getChapterPyqsOverview: (chapterId: string) => fetchApi(`/assessments/chapters/${chapterId}/pyqs/overview`),
+
+  // --- PERSONALIZED STUDY PLANS ---
+  getStudyPlans: () => fetchApi('/school/study-plans'),
+  // Study Planner
+  getTodayStudyPlan: () => fetchApi('/school/study-plans/today'),
+  getBacklogs: () => fetchApi('/school/study-plans/backlogs'),
+  getStudyPlanWeakTopics: () => fetchApi('/school/study-plans/weak-topics'),
+  getRevision: () => fetchApi('/school/study-plans/revision'),
+  getRoadmap: () => fetchApi('/school/study-plans/roadmap'),
+  getStudyPlanCourses: () => fetchApi('/school/study-plans/courses'),
+  getNextAction: () => fetchApi('/school/study-plans/next-action'),
+  generateStudyPlan: (data: any) => fetchApi('/school/study-plans/generate', { method: 'POST', body: JSON.stringify(data) }),
+  regenerateStudyPlan: () => fetchApi('/school/study-plans/regenerate', { method: 'POST' }),
+  clearStudyPlan: () => fetchApi('/school/study-plans/clear', { method: 'POST' }),
+  completeStudyPlanItem: (id: string) => fetchApi(`/school/study-plans/items/${id}/complete`, { method: 'POST' }),
+  skipStudyPlanItem: (id: string) => fetchApi(`/school/study-plans/items/${id}/skip`, { method: 'POST' }),
+  getSpacedRevision: () => fetchApi('/school/study-plans/revision/spaced'),
+  getIntensiveRevision: () => fetchApi('/school/study-plans/revision/intensive'),
+  getNotesRevision: () => fetchApi('/school/study-plans/revision/notes'),
+  getPracticeRevision: () => fetchApi('/school/study-plans/revision/practice'),
+  startRevisionSession: (data: any) => fetchApi('/school/study-plans/revision/start', { method: 'POST', body: JSON.stringify(data) }),
+  completeRevisionSession: () => fetchApi('/school/study-plans/revision-session/complete', { method: 'POST' }),
+
+  // --- AI TUTOR & TOPIC PROGRESS ---
+  getTopicStudyStatus: (topicId: string) => fetchApi(`/school/topics/${topicId}/study-status`),
+  startAiStudy: (topicId: string) => fetchApi(`/school/topics/${topicId}/ai-study/start`, { method: 'POST' }),
+  askAiQuestion: (topicId: string, sessionId: string, data: any) => fetchApi(`/school/topics/${topicId}/ai-study/${sessionId}/ask`, { method: 'POST', body: JSON.stringify(data) }),
+  completeAiStudy: (topicId: string, sessionId: string) => fetchApi(`/school/topics/${topicId}/ai-study/${sessionId}/complete`, { method: 'PATCH' }),
+  saveAiStudyNotes: (topicId: string, sessionId: string, data: any) => fetchApi(`/school/topics/${topicId}/ai-study/${sessionId}/save-notes`, { method: 'PATCH', body: JSON.stringify(data) }),
+  completeAiQuiz: (topicId: string, data: any) => fetchApi(`/school/topics/${topicId}/ai-quiz/complete`, { method: 'POST', body: JSON.stringify(data) }),
+
+  // Aliases for missing AI APIs
+  generateAiQuiz: (topicId: string) => fetchApi('/school/topics/' + topicId + '/ai-quiz/generate', { method: 'POST' }),
+  getToday: () => fetchApi('/school/study-plans/today'),
+  generate: (data: any) => fetchApi('/school/study-plans/generate', { method: 'POST', body: JSON.stringify(data) }),
+  completeItem: (id: string) => fetchApi('/school/study-plans/items/' + id + '/complete', { method: 'PATCH' }),
+  skipItem: (id: string) => fetchApi('/school/study-plans/items/' + id + '/skip', { method: 'PATCH' }),
+  quizRushLeaderboard: () => fetchApi('/school/gamification/quiz-rush/leaderboard'),
+
+  // Add missing standard endpoints
+//   getMaterials: () => fetchApi('/school/materials'),
+//   getRecordings: () => fetchApi('/school/classes/recordings'),
+//   getNotifications: () => fetchApi('/school/notifications'),
+//   getEvents: () => fetchApi('/school/calendar/events'),
+//   getPlatformNotices: () => fetchApi('/school/notices/platform'),
+//   getAssessments: () => fetchApi('/school/assessments'),
+
+
+  // --- NEW LIVE CLASSES APIs ---
+  getScheduledLiveLectures: () => fetchApi('/school/live/lectures'),
+  getActiveLiveLectures: () => fetchApi('/school/live/lectures/live'),
+  getStreamUrl: (id: string) => fetchApi(`/school/live/lectures/${id}/stream-url`),
+  raiseHand: (id: string, raised: boolean) => fetchApi(`/school/live/lectures/${id}/hand`, { method: 'POST', body: JSON.stringify({ raised }) }),
+  getLiveChat: (id: string) => fetchApi(`/school/live/lectures/${id}/chat`),
+  getActivePoll: (id: string) => fetchApi(`/school/live/lectures/${id}/polls/active`),
+  votePoll: (id: string, pollId: string, option: string) => fetchApi(`/school/live/lectures/${id}/polls/${pollId}/vote`, { method: 'POST', body: JSON.stringify({ option }) }),
+  getAllPolls: (id: string) => fetchApi(`/school/live/lectures/${id}/polls`),
+  getLiveRecordings: () => fetchApi('/school/live/recordings'),
+  getRecordingUrl: (id: string) => fetchApi(`/school/live/lectures/${id}/recording-url`),
+
+  // ==========================================
+  //            TEACHER PORTAL APIs
+  // ==========================================
+  teacher: {
+    // 1. Dashboard & Stats
+    getStats: () => fetchApi('/school/teachers/stats'),
+    
+    // 2. Classes & Subjects
+    getClasses: () => fetchApi('/school/reports/teacher/class'),
+    getSubjects: (teacherId: string) => fetchApi(`/school/subjects/teacher/${teacherId}`),
+    
+    // 3. Assignments
+    getAssignments: () => fetchApi('/school/assignments'),
+    createAssignment: (data: any) => fetchApi('/school/assignments', { method: 'POST', body: JSON.stringify(data) }),
+    getInboxSubmissions: () => fetchApi('/school/assignments/submissions/inbox'),
+    getAssignmentSubmissions: (id: string) => fetchApi(`/school/assignments/${id}/submissions`),
+    gradeSubmission: (assignmentId: string, submissionId: string, data: any) => fetchApi(`/school/assignments/${assignmentId}/submissions/${submissionId}/grade`, { method: 'POST', body: JSON.stringify(data) }),
+    aiGenerateAssignment: (data: any) => fetchApi('/school/assignments/ai-generate', { method: 'POST', body: JSON.stringify(data) }),
+    
+    // 4. Assessments (Exams/Quizzes)
+    getAssessments: () => fetchApi('/school/assessments'),
+    createAssessment: (data: any) => fetchApi('/school/assessments', { method: 'POST', body: JSON.stringify(data) }),
+    aiGenerateAssessment: (data: any) => fetchApi('/school/assessments/ai-generate', { method: 'POST', body: JSON.stringify(data) }),
+    getAssessmentResults: (id: string) => fetchApi(`/school/assessments/${id}/results`),
+    // 5. Recordings & Materials
+    getRecordings: (teacherId: string) => fetchApi(`/school/teachers/${teacherId}/recordings`),
+    analyzeRecording: (teacherId: string, recordingId: string) => fetchApi(`/school/teachers/${teacherId}/recordings/${recordingId}/analyze`, { method: 'POST' }),
+
+    // 6. Attendance
+    markAttendanceSession: (data: any) => fetchApi('/school/attendance/session', { method: 'POST', body: JSON.stringify(data) }),
+    getAttendanceLogs: () => fetchApi('/school/attendance'),
+
+    // 7. Doubts
+    getDoubts: () => fetchApi('/school/doubts'),
+    respondToDoubt: (id: string, data: any) => fetchApi(`/school/doubts/${id}/respond`, { method: 'POST', body: JSON.stringify(data) }),
+
+    // 8. Materials & PPT
+    uploadMaterial: (data: any) => fetchApi('/school/materials', { method: 'POST', body: JSON.stringify(data) }),
+    generatePPT: (data: any) => fetchApi('/school/ppt/generate', { method: 'POST', body: JSON.stringify(data) }),
+    generateAiNotes: (data: any) => fetchApi('/school/materials/ai-generate', { method: 'POST', body: JSON.stringify(data) }),
+
+    // 9. Live Classes
+    startLiveLecture: (data: any) => fetchApi('/school/live/lectures', { method: 'POST', body: JSON.stringify(data) }),
+    endLiveLecture: (id: string) => fetchApi(`/school/live/lectures/${id}/end`, { method: 'POST' }),
+    createLivePoll: (id: string, data: any) => fetchApi(`/school/live/lectures/${id}/polls`, { method: 'POST', body: JSON.stringify(data) }),
+
+    // 10. Timetables
+    getTimetables: () => fetchApi('/school/timetables'),
+    createTimetable: (data: any) => fetchApi('/school/timetables', { method: 'POST', body: JSON.stringify(data) }),
+  }
+};

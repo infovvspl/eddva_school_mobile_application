@@ -13,22 +13,44 @@ import {
 } from 'react-native';
 import { Mail, Lock, Eye, Check } from 'lucide-react-native';
 import { hs, vs, ms } from '../utils/responsive';
+import { useAppTheme } from '../context/ThemeContext';
+import ReactNativeBiometrics from 'react-native-biometrics';
+import { schoolApi, setAuthToken } from '../utils/api';
 
 const API_BASE_URL = 'https://dev-api.eddva.in/api/v1';
 
-export function LoginScreen({
-  onLogin,
-  theme,
-}: {
-  onLogin: () => void;
-  theme: { background: string; surface: string; text: string; subtext: string; primary: string; primarySoft: string; border: string; accent: string };
-}) {
+export function LoginScreen({ onLogin }: { onLogin: (role: string) => void; }) {
+  const { theme, isDarkMode, toggleTheme } = useAppTheme();
+  const styles = getStyles(theme);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [role, setRole] = useState<'student'|'teacher'>('student');
+
+  
+  const handleBiometricLogin = async () => {
+    try {
+      const rnBiometrics = new ReactNativeBiometrics();
+      const { available, biometryType } = await rnBiometrics.isSensorAvailable();
+      if (available && biometryType) {
+        const { success } = await rnBiometrics.simplePrompt({ promptMessage: 'Login with Biometrics' });
+        if (success) {
+          setAuthToken('biometric-token-12345');
+          console.log('Biometric Login successful');
+          onLogin(role);
+        } else {
+          setError('Biometric authentication cancelled or failed.');
+        }
+      } else {
+        setError('Biometrics not available on this device.');
+      }
+    } catch (err: any) {
+      setError('Error using biometrics.');
+    }
+  };
 
   const handleLogin = async () => {
     if (!email || !password) {
@@ -36,31 +58,22 @@ export function LoginScreen({
       return;
     }
 
+
     setIsLoading(true);
     setError(null);
 
     try {
-      const response = await fetch(`${API_BASE_URL}/school/auth/login`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json'
-        },
-        body: JSON.stringify({ email, password }),
-      });
+      const data = await schoolApi.login({ email, password });
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || 'Invalid credentials. Please try again.');
+      // Save token in memory
+      if (data && data.token) {
+        setAuthToken(data.token);
       }
-
-      // Successful login
-      // TODO: Save token to AsyncStorage or SecureStore here if needed
       console.log('Login successful:', data);
-      onLogin(); // Navigate to main app
+      onLogin(role); // Navigate to main app
     } catch (err: any) {
-      setError(err.message || 'An error occurred during login.');
+      console.warn('Full Login Error:', err);
+      setError(`Login failed: ${err.message || JSON.stringify(err)}`);
     } finally {
       setIsLoading(false);
     }
@@ -86,11 +99,26 @@ export function LoginScreen({
         <View style={styles.content}>
           <View style={styles.header}>
             <Text style={styles.title}>Welcome Back!</Text>
-            <Text style={styles.subtitle}>Login to your student account</Text>
+            <Text style={styles.subtitle}>Login to your account</Text>
           </View>
 
           {/* Form Card */}
           <View style={styles.formCard}>
+            
+            <View style={styles.roleSelector}>
+              <TouchableOpacity 
+                style={[styles.roleBtn, role === 'student' && styles.roleBtnActive]} 
+                onPress={() => setRole('student')}
+              >
+                <Text style={[styles.roleBtnText, role === 'student' && styles.roleBtnTextActive]}>Student</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={[styles.roleBtn, role === 'teacher' && styles.roleBtnActive]} 
+                onPress={() => setRole('teacher')}
+              >
+                <Text style={[styles.roleBtnText, role === 'teacher' && styles.roleBtnTextActive]}>Teacher</Text>
+              </TouchableOpacity>
+            </View>
             
             <View style={styles.inputGroup}>
               <Text style={styles.label}>Email Address</Text>
@@ -122,7 +150,7 @@ export function LoginScreen({
                   onChangeText={setPassword}
                 />
                 <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={styles.eyeBtn}>
-                  <Eye color="#94A3B8" size={20} />
+                  <Eye color={theme.subtext} size={20} />
                 </TouchableOpacity>
               </View>
             </View>
@@ -134,7 +162,7 @@ export function LoginScreen({
                 activeOpacity={0.7}
               >
                 <View style={[styles.checkbox, rememberMe && styles.checkboxActive]}>
-                  {rememberMe && <Check size={14} color="#FFF" strokeWidth={3} />}
+                  {rememberMe && <Check size={14} color={theme.surface} strokeWidth={3} />}
                 </View>
                 <Text style={styles.checkboxLabel}>Remember me</Text>
               </TouchableOpacity>
@@ -151,12 +179,11 @@ export function LoginScreen({
               disabled={isLoading}
             >
               {isLoading ? (
-                <ActivityIndicator color="#FFFFFF" />
+                <ActivityIndicator color={theme.surface} />
               ) : (
                 <Text style={styles.buttonText}>Login</Text>
               )}
             </TouchableOpacity>
-            
           </View>
         </View>
 
@@ -165,14 +192,14 @@ export function LoginScreen({
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (theme: any) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: theme.surface,
   },
   innerContainer: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: theme.surface,
     paddingBottom: vs(20),
   },
   heroWrapper: {
@@ -190,7 +217,7 @@ const styles = StyleSheet.create({
   content: {
     paddingHorizontal: hs(24),
     paddingTop: 0,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: theme.surface,
     zIndex: 1,
   },
   header: {
@@ -199,26 +226,56 @@ const styles = StyleSheet.create({
   title: {
     fontFamily: 'Poppins-Bold',
     fontSize: ms(28),
-    color: '#0F172A',
+    color: theme.text,
     marginBottom: vs(4),
   },
   subtitle: {
     fontFamily: 'Poppins-Regular',
     fontSize: ms(15),
-    color: '#64748B',
+    color: theme.subtext,
   },
   formCard: {
     width: '100%',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: theme.surface,
     borderRadius: ms(24),
     padding: ms(20),
-    shadowColor: '#64748B',
+    shadowColor: theme.subtext,
     shadowOpacity: 0.1,
     shadowRadius: ms(24),
     shadowOffset: { width: 0, height: vs(12) },
     elevation: 8,
     borderWidth: 1,
-    borderColor: '#F1F5F9',
+    borderColor: theme.surfaceAlt,
+  },
+  roleSelector: {
+    flexDirection: 'row',
+    backgroundColor: '#F1F5F9',
+    borderRadius: ms(12),
+    padding: ms(4),
+    marginBottom: vs(20),
+  },
+  roleBtn: {
+    flex: 1,
+    paddingVertical: vs(10),
+    alignItems: 'center',
+    borderRadius: ms(10),
+  },
+  roleBtnActive: {
+    backgroundColor: '#fff',
+    shadowColor: '#000',
+    shadowOpacity: 0.1,
+    shadowRadius: ms(4),
+    shadowOffset: { width: 0, height: vs(2) },
+    elevation: 2,
+  },
+  roleBtnText: {
+    fontFamily: 'Poppins-Medium',
+    fontSize: ms(14),
+    color: '#64748B',
+  },
+  roleBtnTextActive: {
+    color: '#1E293B',
+    fontWeight: '700',
   },
   errorText: {
     fontFamily: 'Poppins-Medium',
@@ -233,16 +290,16 @@ const styles = StyleSheet.create({
   label: {
     fontFamily: 'Poppins-Medium',
     fontSize: ms(14),
-    color: '#334155',
+    color: theme.text,
     marginBottom: vs(6),
   },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1.5,
-    borderColor: '#E2E8F0',
+    borderColor: theme.border,
     borderRadius: ms(16),
-    backgroundColor: '#F8FAFC',
+    backgroundColor: theme.background,
     height: vs(56),
   },
   inputIcon: {
@@ -254,7 +311,7 @@ const styles = StyleSheet.create({
     height: '100%',
     fontFamily: 'Poppins-Regular',
     fontSize: ms(15),
-    color: '#0F172A',
+    color: theme.text,
   },
   eyeBtn: {
     padding: ms(16),
@@ -274,7 +331,7 @@ const styles = StyleSheet.create({
     height: ms(20),
     borderRadius: ms(6),
     borderWidth: 2,
-    borderColor: '#CBD5E1',
+    borderColor: theme.border,
     marginRight: hs(8),
     alignItems: 'center',
     justifyContent: 'center',
@@ -286,7 +343,7 @@ const styles = StyleSheet.create({
   checkboxLabel: {
     fontFamily: 'Poppins-Medium',
     fontSize: ms(14),
-    color: '#475569',
+    color: theme.subtext,
   },
   button: {
     backgroundColor: '#0052FF',
@@ -301,23 +358,23 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
   buttonDisabled: {
-    backgroundColor: '#94A3B8',
+    backgroundColor: theme.subtext,
     shadowOpacity: 0,
     elevation: 0,
   },
   buttonText: {
     fontFamily: 'Poppins-Bold',
     fontSize: ms(16),
-    color: '#FFFFFF',
+    color: theme.surface,
   },
   dividerLine: {
     flex: 1,
     height: 1,
-    backgroundColor: '#E2E8F0',
+    backgroundColor: theme.border,
   },
   dividerText: {
     fontFamily: 'Poppins-Medium',
-    color: '#94A3B8',
+    color: theme.subtext,
     paddingHorizontal: 16,
     fontSize: 14,
   },
@@ -327,7 +384,7 @@ const styles = StyleSheet.create({
     height: 52,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: theme.surface,
     borderWidth: 1,
     borderColor: '#0052FF',
   },
@@ -339,7 +396,7 @@ const styles = StyleSheet.create({
   newStudentCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F8FAFC',
+    backgroundColor: theme.background,
     borderRadius: 16,
     padding: 16,
     marginTop: 8,
@@ -359,7 +416,7 @@ const styles = StyleSheet.create({
   newStudentTitle: {
     fontFamily: 'Poppins-Bold',
     fontSize: 14,
-    color: '#0F172A',
+    color: theme.text,
   },
   newStudentSub: {
     fontFamily: 'Poppins-Regular',

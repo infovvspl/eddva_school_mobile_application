@@ -1,0 +1,3 @@
+@echo off
+echo Starting Android Emulator...
+C:\Users\USER\AppData\Local\Android\Sdk\emulator\emulator.exe -avd Pixel_9 -gpu swiftshader_indirect

@@ -1,0 +1,97 @@
+[
+  {
+    "endpoint": "/school/students/dashboard",
+    "status": 200,
+    "data": "{\"success\":true,\"data\":{\"student\":{\"id\":\"39e5bd87-ece0-430d-92a7-4cc94454f65b\",\"userId\":\"b49ee8d3-4c"
+  },
+  {
+    "endpoint": "/school/timetables/student/me",
+    "status": 200,
+    "data": "{\"success\":true,\"timetable\":[{\"subject\":\"Mathematics\",\"teacher\":\"Deepak Lenka\",\"day\":\"MONDAY\",\"start"
+  },
+  {
+    "endpoint": "/school/students/profile/me",
+    "status": 200,
+    "data": "{\"success\":true,\"data\":{\"id\":\"b49ee8d3-4c33-448c-aa06-30dc8bfbee54\",\"name\":\"Pratap Das\",\"email\":\"pra"
+  },
+  {
+    "endpoint": "/school/attendance",
+    "status": 200,
+    "data": "{\"success\":true,\"data\":[{\"id\":\"2a8edec6-3f4c-4c1a-9c9c-debfb00b95aa\",\"date\":\"2026-07-14T00:00:00.000"
+  },
+  {
+    "endpoint": "/school/reports/my-analytics",
+    "status": 200,
+    "data": "{\"success\":true,\"data\":{\"profile\":{\"user_id\":\"b49ee8d3-4c33-448c-aa06-30dc8bfbee54\",\"section_id\":\"5e"
+  },
+  {
+    "endpoint": "/school/career/explore",
+    "status": 403,
+    "data": "{\"success\":false,\"statusCode\":403,\"message\":\"AI features are disabled for your institution.\",\"errors"
+  },
+  {
+    "endpoint": "/school/career/quiz/status",
+    "status": 403,
+    "data": "{\"success\":false,\"statusCode\":403,\"message\":\"AI features are disabled for your institution.\",\"errors"
+  },
+  {
+    "endpoint": "/school/assignments",
+    "status": 200,
+    "data": "{\"success\":true,\"data\":[{\"id\":\"fd353bce-ce7f-47f9-95e3-1b53ed9be46b\",\"due_date\":\"2026-07-02T00:00:00"
+  },
+  {
+    "endpoint": "/school/assessments",
+    "status": 200,
+    "data": "{\"success\":true,\"data\":[{\"id\":\"da18bf18-9fd5-41bb-a7dc-4e9732ea552e\",\"title\":\"Test - 1\",\"type\":\"topi"
+  },
+  {
+    "endpoint": "/school/classes/recordings",
+    "status": 200,
+    "data": "{\"success\":true,\"data\":[{\"id\":\"8a0e6c03-8634-456a-80e2-ed693fefc645\",\"title\":\"A letter to god\",\"desc"
+  },
+  {
+    "endpoint": "/school/materials",
+    "status": 200,
+    "data": "{\"success\":true,\"data\":[{\"id\":\"f219834a-93eb-42f7-aebe-5d8052744688\",\"tenant_id\":\"c259cd4e-b018-45e2"
+  },
+  {
+    "endpoint": "/school/doubts",
+    "status": 403,
+    "data": "{\"success\":false,\"statusCode\":403,\"message\":\"AI features are disabled for your institution.\",\"errors"
+  },
+  {
+    "endpoint": "/school/calendar/events",
+    "status": 200,
+    "data": "{\"success\":true,\"data\":[{\"id\":\"a8d97e4d-328e-4ce7-82ff-bb0101494031\",\"instituteId\":\"c259cd4e-b018-45"
+  },
+  {
+    "endpoint": "/school/notices/platform",
+    "status": 403,
+    "data": "{\"success\":false,\"statusCode\":403,\"message\":\"Role 'STUDENT' is not authorized to access this resourc"
+  },
+  {
+    "endpoint": "/school/notifications",
+    "status": 200,
+    "data": "{\"success\":true,\"data\":[{\"id\":\"a56dab30-3a2b-407e-b1da-d3e7fa2bb607\",\"userId\":\"b49ee8d3-4c33-448c-aa"
+  },
+  {
+    "endpoint": "/school/gamification/quiz-rush/leaderboard",
+    "status": 200,
+    "data": "{\"success\":true,\"statusCode\":200,\"message\":\"Success\",\"data\":[{\"rank\":1,\"studentId\":\"39e5bd87-ece0-43"
+  },
+  {
+    "endpoint": "/school/study-plans/today",
+    "status": 403,
+    "data": "{\"success\":false,\"statusCode\":403,\"message\":\"AI features are disabled for your institution.\",\"errors"
+  },
+  {
+    "endpoint": "/school/study-plans/backlogs",
+    "status": 404,
+    "data": "{\"success\":false,\"statusCode\":404,\"message\":\"Cannot GET /api/v1/school/study-plans/backlogs\",\"errors"
+  },
+  {
+    "endpoint": "/school/study-plans/roadmap",
+    "status": 404,
+    "data": "{\"success\":false,\"statusCode\":404,\"message\":\"Cannot GET /api/v1/school/study-plans/roadmap\",\"errors\""
+  }
+]

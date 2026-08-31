@@ -1,0 +1,8 @@
+node_modules/
+android/
+ios/
+temp-gradle-home/
+.gradle/
+build/
+dist/
+scratch/

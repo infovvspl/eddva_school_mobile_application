@@ -1,13 +1,14 @@
 import React, { useEffect } from 'react';
 import { StyleSheet, View, Image, Text, useWindowDimensions } from 'react-native';
+import { useAppTheme } from '../context/ThemeContext';
 
 export function SplashScreen({
-  theme,
   onFinish,
 }: {
-  theme: { background: string; surface: string; text: string; subtext: string; primary: string; primarySoft: string; border: string; accent: string };
   onFinish: () => void;
 }) {
+  const { theme } = useAppTheme();
+const styles = getStyles(theme);
   const { width, height } = useWindowDimensions();
 
   useEffect(() => {
@@ -19,23 +20,23 @@ export function SplashScreen({
     <View style={styles.container}>
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
         <Image 
-          source={require('../../assets/LOGO 2.png')} 
+          source={require('../../assets/logo.png')} 
           style={{ width: width * 0.8, height: height * 0.5 }} 
           resizeMode="contain" 
         />
       </View>
       <View style={styles.bottomContainer}>
-        <Text style={styles.title}>Eddva</Text>
+
         <Text style={styles.subtitle}>Empowering your learning journey</Text>
       </View>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (theme: any) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: theme.surface,
     alignItems: 'center',
     justifyContent: 'space-between',
   },
@@ -46,12 +47,12 @@ const styles = StyleSheet.create({
   title: {
     fontFamily: 'Poppins-Bold',
     fontSize: 24,
-    color: '#0F172A',
+    color: theme.text,
   },
   subtitle: {
     fontFamily: 'Poppins-Regular',
     fontSize: 14,
-    color: '#64748B',
+    color: theme.subtext,
     marginTop: 8,
   },
 });
