@@ -23,14 +23,16 @@ export function LiveClassRoomScreen({ onNavigate, routeParams }: any) {
   
   const scrollViewRef = useRef<ScrollView>(null);
 
-  // Mock classId if none provided
-  const classId = routeParams?.id || 'a47d7c18-97d8-4903-bdf2-f8c5c78b4f2c';
+  const classId: string | undefined = routeParams?.id;
 
   useEffect(() => {
     fetchInitialData();
-  }, []);
+  }, [classId]);
 
   const fetchInitialData = async () => {
+    // Nothing to join without a class id; the screen used to fall back to a
+    // hardcoded UUID that pointed at somebody else's lecture.
+    if (!classId) return;
     try {
       const [chatData, pollData] = await Promise.all([
         schoolApi.getLiveChat(classId).catch(() => []),
@@ -60,17 +62,19 @@ export function LiveClassRoomScreen({ onNavigate, routeParams }: any) {
   };
 
   const handleToggleHand = async () => {
+    if (!classId) return;
     const newState = !isHandRaised;
     setIsHandRaised(newState);
     try {
       await schoolApi.raiseHand(classId, newState);
     } catch (e) {
-      // Ignore network errors for mock
+      // Raising a hand is best-effort; don't block the lecture UI on it.
+      setIsHandRaised(!newState);
     }
   };
 
   const handleVotePoll = async () => {
-    if (!selectedOption || !activePoll) return;
+    if (!selectedOption || !activePoll || !classId) return;
     setPollVoted(true);
     try {
       await schoolApi.votePoll(classId, activePoll.id, selectedOption);
@@ -378,13 +382,13 @@ const getStyles = (theme: any) => StyleSheet.create({
   },
   chatBubbleOther: {
     backgroundColor: theme.surface,
-    borderTopLeftRadius: 4,
+    borderTopLeftRadius: ms(4),
     borderWidth: 1,
     borderColor: theme.border,
   },
   chatBubbleMe: {
     backgroundColor: theme.primary,
-    borderTopRightRadius: 4,
+    borderTopRightRadius: ms(4),
   },
   chatText: {
     fontSize: ms(14),

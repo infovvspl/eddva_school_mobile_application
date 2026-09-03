@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { ScrollView, StyleSheet, Text, View, ActivityIndicator, Dimensions, Platform, StatusBar } from 'react-native';
+import { ScrollView, StyleSheet, Text, View, ActivityIndicator, Dimensions } from 'react-native';
 import { hs, vs, ms } from '../utils/responsive';
 import { TrendingUp, Clock, Target, Activity, Star, AlertTriangle, Info, BookOpen } from 'lucide-react-native';
 import { schoolApi } from '../utils/api';
@@ -167,7 +167,7 @@ const getStyles = (theme: any) => StyleSheet.create({
     backgroundColor: theme.background },
   
   // Header
-  header: { backgroundColor: theme.headerBg, paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight || 24) + 10 : 60, paddingHorizontal: hs(20), paddingBottom: vs(40), borderBottomLeftRadius: ms(32), borderBottomRightRadius: ms(32) },
+  header: { backgroundColor: theme.headerBg, paddingTop: vs(12), paddingHorizontal: hs(20), paddingBottom: vs(40), borderBottomLeftRadius: ms(32), borderBottomRightRadius: ms(32) },
   headerTitleRow: { marginBottom: vs(24) },
   pageTitle: { fontFamily: 'Poppins-SemiBold', fontSize: ms(24), color: theme.surface },
   
@@ -175,7 +175,7 @@ const getStyles = (theme: any) => StyleSheet.create({
   heroStatBlock: { flex: 1, alignItems: 'center' },
   heroDivider: { width: hs(1), height: vs(40), backgroundColor: theme.border },
   heroStatLbl: { fontFamily: 'Poppins-Medium', fontSize: ms(13), color: theme.subtext, marginBottom: vs(4) },
-  heroStatVal: { fontFamily: 'Poppins-Bold', fontSize: ms(32), color: theme.text, lineHeight: ms(36) },
+  heroStatVal: { fontFamily: 'Poppins-Medium', fontSize: ms(32), color: theme.text, lineHeight: ms(36) },
   heroStatUnit: { fontFamily: 'Poppins-Medium', fontSize: ms(16), color: theme.subtext, marginLeft: hs(2) },
   trendPill: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#ECFDF5', paddingHorizontal: hs(12), paddingVertical: vs(6), borderRadius: ms(16), marginTop: vs(4) },
   trendPillText: { fontFamily: 'Poppins-SemiBold', fontSize: ms(14), color: '#10B981', marginLeft: hs(6) },

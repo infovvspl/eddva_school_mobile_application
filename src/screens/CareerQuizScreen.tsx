@@ -83,7 +83,7 @@ export function CareerQuizScreen({ onNavigate }: any) {
     <SafeAreaView style={{ flex: 1, backgroundColor: theme.background }}>
       <View style={[styles.header, { backgroundColor: theme.surface, borderBottomColor: theme.border }]}>
         <TouchableOpacity onPress={() => onNavigate('careers')} style={styles.iconBtn}>
-          <ArrowLeft size={24} color={theme.text} />
+          <ArrowLeft size={ms(24)} color={theme.text} />
         </TouchableOpacity>
         <Text style={[styles.title, { color: theme.text }]}>Career Aptitude Test</Text>
       </View>
@@ -91,8 +91,8 @@ export function CareerQuizScreen({ onNavigate }: any) {
       <ScrollView contentContainerStyle={{ padding: ms(16) }}>
         <View style={styles.progressRow}>
           <Text style={{ color: theme.primary, fontFamily: 'Poppins-SemiBold', fontSize: ms(14) }}>Question {currentIdx + 1} of {questions.length}</Text>
-          <View style={{ flex: 1, height: 6, backgroundColor: theme.border, marginLeft: hs(12), borderRadius: 3 }}>
-            <View style={{ height: 6, backgroundColor: theme.primary, borderRadius: 3, width: `${((currentIdx + 1) / questions.length) * 100}%` }} />
+          <View style={{ flex: 1, height: vs(6), backgroundColor: theme.border, marginLeft: hs(12), borderRadius: ms(3) }}>
+            <View style={{ height: vs(6), backgroundColor: theme.primary, borderRadius: ms(3), width: `${((currentIdx + 1) / questions.length) * 100}%` }} />
           </View>
         </View>
 
@@ -139,7 +139,7 @@ export function CareerQuizScreen({ onNavigate }: any) {
           ) : (
             <TouchableOpacity style={[styles.submitBtn, { backgroundColor: theme.primary }]} onPress={() => setCurrentIdx(prev => Math.min(questions.length - 1, prev + 1))}>
               <Text style={[styles.submitBtnText, { color: theme.surface }]}>Next</Text>
-              <ChevronRight size={20} color={theme.surface} />
+              <ChevronRight size={ms(20)} color={theme.surface} />
             </TouchableOpacity>
           )}
         </View>

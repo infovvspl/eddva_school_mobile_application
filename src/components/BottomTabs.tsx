@@ -1,5 +1,6 @@
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { hs, vs, ms } from '../utils/responsive';
 
 type TabKey = 'home' | 'timetable' | 'assignments' | 'profile';
 
@@ -38,19 +39,19 @@ const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
     backgroundColor: '#ffffff',
-    paddingHorizontal: 10,
-    paddingVertical: 8,
+    paddingHorizontal: hs(10),
+    paddingVertical: vs(8),
     borderTopWidth: 1,
     borderTopColor: '#e2e8f0',
   },
   tab: {
     flex: 1,
-    paddingVertical: 10,
-    borderRadius: 14,
+    paddingVertical: vs(10),
+    borderRadius: ms(14),
     alignItems: 'center',
   },
   tabText: {
     fontWeight: '700',
-    fontSize: 13,
+    fontSize: ms(13),
   },
 });

@@ -12,7 +12,21 @@ export function MenuScreen({ onNavigate, onClose }: any) {
   const [profile, setProfile] = useState<any>(null);
 
   useEffect(() => {
-    schoolApi.getMyProfile().then(data => setProfile(data)).catch(() => {});
+    schoolApi.getMyProfile()
+      .then(res => {
+        // Unwrap the { success, data } envelope and derive the initials the
+        // header expects; the raw response has neither shape.
+        const p = res?.data ?? res ?? {};
+        const name: string = p.name || '';
+        setProfile({
+          ...p,
+          name: name || 'Student',
+          avatarInitials:
+            name.trim().split(/\s+/).filter(Boolean).slice(0, 2)
+              .map((w: string) => w.charAt(0)).join('').toUpperCase() || 'S',
+        });
+      })
+      .catch(err => console.error('[menu] profile load failed', err));
   }, []);
 
   const handleLogout = () => {
@@ -25,37 +39,37 @@ export function MenuScreen({ onNavigate, onClose }: any) {
     {
       title: 'Academics',
       items: [
-        { id: 'studyPlan', title: 'Personalized Study Plan', icon: <PenTool size={20} color={theme.primary} />, badge: 'AI' },
-        { id: 'aiStudy', title: 'AI Study Assistant', icon: <BookOpen size={20} color="#8B5CF6" />, badge: 'New' },
-        { id: 'studyMaterials', title: 'Study Materials', icon: <FileText size={20} color={theme.text} /> },
-        { id: 'timetable', title: 'Class Timetable', icon: <Clock size={20} color={theme.text} /> },
-        { id: 'liveClasses', title: 'Live Classes', icon: <Video size={20} color="#EF4444" /> },
-        { id: 'recordedClasses', title: 'Recorded Lectures', icon: <MonitorPlay size={20} color={theme.text} /> },
+        { id: 'studyPlan', title: 'Personalized Study Plan', icon: <PenTool size={ms(20)} color={theme.primary} />, badge: 'AI' },
+        { id: 'aiStudy', title: 'AI Study Assistant', icon: <BookOpen size={ms(20)} color="#8B5CF6" />, badge: 'New' },
+        { id: 'studyMaterials', title: 'Study Materials', icon: <FileText size={ms(20)} color={theme.text} /> },
+        { id: 'timetable', title: 'Class Timetable', icon: <Clock size={ms(20)} color={theme.text} /> },
+        { id: 'liveClasses', title: 'Live Classes', icon: <Video size={ms(20)} color="#EF4444" /> },
+        { id: 'recordedClasses', title: 'Recorded Lectures', icon: <MonitorPlay size={ms(20)} color={theme.text} /> },
       ]
     },
     {
       title: 'Assessments & Doubts',
       items: [
-        { id: 'assignments', title: 'Assignments', icon: <FileSignature size={20} color={theme.text} /> },
-        { id: 'assessments', title: 'Tests & Assessments', icon: <FileCheck2 size={20} color={theme.text} /> },
-        { id: 'pyq', title: 'Previous Year Papers (PYQ)', icon: <BookOpen size={20} color={theme.text} /> },
-        { id: 'doubt', title: 'Doubt Forum', icon: <HelpCircle size={20} color={theme.text} /> },
+        { id: 'assignments', title: 'Assignments', icon: <FileSignature size={ms(20)} color={theme.text} /> },
+        { id: 'assessments', title: 'Tests & Assessments', icon: <FileCheck2 size={ms(20)} color={theme.text} /> },
+        { id: 'pyq', title: 'Previous Year Papers (PYQ)', icon: <BookOpen size={ms(20)} color={theme.text} /> },
+        { id: 'doubt', title: 'Doubt Forum', icon: <HelpCircle size={ms(20)} color={theme.text} /> },
       ]
     },
     {
       title: 'Performance & Growth',
       items: [
-        { id: 'analytics', title: 'My Analytics', icon: <TrendingUp size={20} color="#10B981" /> },
-        { id: 'gamification', title: 'Arcade & Games', icon: <Gamepad2 size={20} color="#F59E0B" /> },
-        { id: 'careers', title: 'Career Guidance', icon: <Briefcase size={20} color={theme.text} /> },
+        { id: 'analytics', title: 'My Analytics', icon: <TrendingUp size={ms(20)} color="#10B981" /> },
+        { id: 'gamification', title: 'Arcade & Games', icon: <Gamepad2 size={ms(20)} color="#F59E0B" /> },
+        { id: 'careers', title: 'Career Guidance', icon: <Briefcase size={ms(20)} color={theme.text} /> },
       ]
     },
     {
       title: 'General',
       items: [
-        { id: 'calendar', title: 'School Calendar', icon: <Calendar size={20} color={theme.text} /> },
-        { id: 'attendance', title: 'Attendance', icon: <User size={20} color={theme.text} /> },
-        { id: 'profile', title: 'My Profile', icon: <User size={20} color={theme.text} /> },
+        { id: 'calendar', title: 'School Calendar', icon: <Calendar size={ms(20)} color={theme.text} /> },
+        { id: 'attendance', title: 'Attendance', icon: <User size={ms(20)} color={theme.text} /> },
+        { id: 'profile', title: 'My Profile', icon: <User size={ms(20)} color={theme.text} /> },
       ]
     }
   ];
@@ -82,7 +96,7 @@ export function MenuScreen({ onNavigate, onClose }: any) {
         {/* Dark Mode Toggle */}
         <View style={styles.themeToggleCard}>
           <View style={styles.themeToggleLeft}>
-            {isDarkMode ? <Moon size={20} color={theme.text} /> : <Sun size={20} color={theme.text} />}
+            {isDarkMode ? <Moon size={ms(20)} color={theme.text} /> : <Sun size={ms(20)} color={theme.text} />}
             <Text style={styles.themeToggleText}>Dark Mode</Text>
           </View>
           <Switch 
@@ -113,7 +127,7 @@ export function MenuScreen({ onNavigate, onClose }: any) {
                         <Text style={[styles.badgeText, item.badge === 'AI' ? {color: '#6366F1'} : {}]}>{item.badge}</Text>
                       </View>
                     )}
-                    <ChevronRight size={20} color={theme.subtext} />
+                    <ChevronRight size={ms(20)} color={theme.subtext} />
                   </View>
                 </TouchableOpacity>
               ))}
@@ -122,7 +136,7 @@ export function MenuScreen({ onNavigate, onClose }: any) {
         ))}
 
         <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
-          <LogOut size={20} color="#EF4444" />
+          <LogOut size={ms(20)} color="#EF4444" />
           <Text style={styles.logoutText}>Log Out</Text>
         </TouchableOpacity>
 
@@ -150,30 +164,30 @@ const getStyles = (theme: any) => StyleSheet.create({
     alignItems: 'center',
   },
   avatarBox: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: hs(48),
+    height: vs(48),
+    borderRadius: ms(24),
     backgroundColor: theme.primary,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 12,
+    marginRight: hs(12),
   },
   avatarText: {
     color: '#fff',
-    fontSize: 18,
+    fontSize: ms(18),
     fontWeight: '700',
   },
   studentName: {
-    fontSize: 18,
+    fontSize: ms(18),
     fontWeight: '700',
     color: theme.text,
   },
   studentClass: {
-    fontSize: 14,
+    fontSize: ms(14),
     color: theme.subtext,
   },
   closeBtn: {
-    padding: 8,
+    padding: ms(8),
   },
   closeBtnText: {
     color: theme.primary,
@@ -183,48 +197,48 @@ const getStyles = (theme: any) => StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    padding: 16,
+    padding: ms(16),
   },
   themeToggleCard: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     backgroundColor: theme.surface,
-    padding: 16,
-    borderRadius: 16,
-    marginBottom: 24,
+    padding: ms(16),
+    borderRadius: ms(16),
+    marginBottom: vs(24),
   },
   themeToggleLeft: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   themeToggleText: {
-    fontSize: 16,
+    fontSize: ms(16),
     fontWeight: '600',
     color: theme.text,
-    marginLeft: 12,
+    marginLeft: hs(12),
   },
   section: {
-    marginBottom: 24,
+    marginBottom: vs(24),
   },
   sectionTitle: {
-    fontSize: 14,
+    fontSize: ms(14),
     fontWeight: '700',
     color: theme.subtext,
-    marginBottom: 12,
-    marginLeft: 8,
+    marginBottom: vs(12),
+    marginLeft: hs(8),
     letterSpacing: 0.5,
   },
   sectionCard: {
     backgroundColor: theme.surface,
-    borderRadius: 16,
+    borderRadius: ms(16),
     overflow: 'hidden',
   },
   menuItem: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 16,
+    padding: ms(16),
   },
   menuItemBorder: {
     borderBottomWidth: 1,
@@ -235,9 +249,9 @@ const getStyles = (theme: any) => StyleSheet.create({
     alignItems: 'center',
   },
   menuItemText: {
-    fontSize: 16,
+    fontSize: ms(16),
     color: theme.text,
-    marginLeft: 12,
+    marginLeft: hs(12),
     fontWeight: '500',
   },
   menuItemRight: {
@@ -246,14 +260,14 @@ const getStyles = (theme: any) => StyleSheet.create({
   },
   badge: {
     backgroundColor: theme.primary,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 12,
-    marginRight: 8,
+    paddingHorizontal: hs(8),
+    paddingVertical: vs(2),
+    borderRadius: ms(12),
+    marginRight: hs(8),
   },
   badgeText: {
     color: '#fff',
-    fontSize: 12,
+    fontSize: ms(12),
     fontWeight: '600',
   },
   logoutBtn: {
@@ -261,14 +275,14 @@ const getStyles = (theme: any) => StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: theme.surface,
-    padding: 16,
-    borderRadius: 16,
-    marginBottom: 40,
+    padding: ms(16),
+    borderRadius: ms(16),
+    marginBottom: vs(40),
   },
   logoutText: {
-    fontSize: 16,
+    fontSize: ms(16),
     fontWeight: '600',
     color: '#EF4444',
-    marginLeft: 12,
+    marginLeft: hs(12),
   }
 });

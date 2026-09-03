@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { ScrollView, StyleSheet, Text, View, TouchableOpacity, ActivityIndicator, Alert, Dimensions, Platform, StatusBar } from 'react-native';
+import { ScrollView, StyleSheet, Text, View, TouchableOpacity, ActivityIndicator, Alert, Dimensions } from 'react-native';
 import { hs, vs, ms } from '../utils/responsive';
 import { FileText, Play, BookOpen, Star, Filter } from 'lucide-react-native';
 import { schoolApi } from '../utils/api';
@@ -154,7 +154,7 @@ const getStyles = (theme: any) => StyleSheet.create({
     backgroundColor: theme.background },
   
   // Header
-  header: { backgroundColor: theme.headerBg, paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight || 24) + 10 : 60, paddingHorizontal: hs(20), paddingBottom: vs(20), borderBottomLeftRadius: ms(32), borderBottomRightRadius: ms(32) },
+  header: { backgroundColor: theme.headerBg, paddingTop: vs(12), paddingHorizontal: hs(20), paddingBottom: vs(20), borderBottomLeftRadius: ms(32), borderBottomRightRadius: ms(32) },
   headerTitleRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: vs(24) },
   pageTitle: { fontFamily: 'Poppins-SemiBold', fontSize: ms(28), color: theme.surface },
   pageSub: { fontFamily: 'Poppins-Regular', fontSize: ms(14), color: theme.subtext },

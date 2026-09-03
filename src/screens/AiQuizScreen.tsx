@@ -232,7 +232,7 @@ const getStyles = (theme: any) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: theme.background },
-  header: { paddingTop: Platform.OS === 'android' ? 40 : 60, backgroundColor: theme.surface, borderBottomWidth: 1, borderBottomColor: theme.border, paddingBottom: vs(16) },
+  header: { paddingTop: vs(12), backgroundColor: theme.surface, borderBottomWidth: 1, borderBottomColor: theme.border, paddingBottom: vs(16) },
   headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: hs(16) },
   headerTitleBox: { flexDirection: 'row', alignItems: 'center', flex: 1 },
   aiIconBox: { width: hs(36), height: hs(36), borderRadius: ms(18), backgroundColor: '#8B5CF6', justifyContent: 'center', alignItems: 'center' },

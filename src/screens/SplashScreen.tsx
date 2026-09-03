@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
 import { StyleSheet, View, Image, Text, useWindowDimensions } from 'react-native';
+import { vs, ms } from '../utils/responsive';
 import { useAppTheme } from '../context/ThemeContext';
 
 export function SplashScreen({
@@ -41,18 +42,18 @@ const getStyles = (theme: any) => StyleSheet.create({
     justifyContent: 'space-between',
   },
   bottomContainer: {
-    paddingBottom: 60,
+    paddingBottom: vs(60),
     alignItems: 'center',
   },
   title: {
-    fontFamily: 'Poppins-Bold',
-    fontSize: 24,
+    fontFamily: 'Poppins-Medium',
+    fontSize: ms(24),
     color: theme.text,
   },
   subtitle: {
     fontFamily: 'Poppins-Regular',
-    fontSize: 14,
+    fontSize: ms(14),
     color: theme.subtext,
-    marginTop: 8,
+    marginTop: vs(8),
   },
 });

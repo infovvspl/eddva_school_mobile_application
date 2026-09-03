@@ -1,25 +1,9 @@
 import React, { useState } from 'react';
-import { ScrollView, StyleSheet, Text, View, TouchableOpacity, TextInput, KeyboardAvoidingView, Platform, Modal, Animated, Alert } from 'react-native';
+import { ScrollView, StyleSheet, Text, View, TouchableOpacity, TextInput, KeyboardAvoidingView, Platform, Modal, Animated, Alert, ActivityIndicator } from 'react-native';
 import { hs, vs, ms } from '../utils/responsive';
 import { ChevronLeft, MessageSquare, BookOpen, Clock, FileText, Highlighter, MessageCircle, Copy, Check, ArrowRight, ArrowLeft, Send, Sparkles, Trophy, X } from 'lucide-react-native';
 import { useAppTheme } from '../context/ThemeContext';
 import { schoolApi, fetchApi } from '../utils/api';
-
-const MOCK_NOTES = `
-# Towards Civil Disobedience
-
-## What You'll Learn
-This topic is about the movement towards civil disobedience in India during the struggle for independence, why it matters in understanding the country's path to freedom, and what it helps us understand about the power of non-violent resistance in achieving social and political change. By studying this topic, you will gain insights into the historical context and key events that led to the adoption of civil disobedience as a strategy by Indian nationalists. This will also help you appreciate the significance of non-violent movements in shaping the world's political landscape.
-
-## Introduction & Background
-The movement towards civil disobedience in India was a significant development in the country's struggle for independence from British rule. It emerged as a response to the failure of the Non-Cooperation Movement...
-`;
-
-const MOCK_FLASHCARDS = [
-  { q: "What was the primary goal of the Non-Cooperation Movement launched by Gandhiji in 1920?", a: "To resist British rule in India through non-violent means, specifically by refusing to cooperate with the colonial government." },
-  { q: "Why was the Simon Commission boycotted?", a: "It was an all-white commission with no Indian members, tasked with constitutional reforms for India." },
-  { q: "What event marked the beginning of the Civil Disobedience Movement?", a: "The Salt March (Dandi March) led by Mahatma Gandhi in 1930." }
-];
 
 export function AiStudyScreen({ onNavigate, routeParams }: any) {
   const { theme, isDarkMode, toggleTheme } = useAppTheme();
@@ -31,46 +15,56 @@ export function AiStudyScreen({ onNavigate, routeParams }: any) {
   const [isCardFlipped, setIsCardFlipped] = useState(false);
   const [chatInput, setChatInput] = useState('');
   
-  const [topicId, setTopicId] = useState<string>(routeParams?.topicId || 'mock-topic');
+  const topicId: string | undefined = routeParams?.topicId;
   const [sessionId, setSessionId] = useState<string>('');
+  const [notes, setNotes] = useState<string>('');
+  const [flashcards, setFlashcards] = useState<{ q: string; a: string }[]>([]);
+  const [sessionError, setSessionError] = useState<string | null>(null);
+  const [sessionLoading, setSessionLoading] = useState(true);
 
   React.useEffect(() => {
     const initAiSession = async () => {
+      if (!topicId) {
+        setSessionError('No topic selected. Open a topic from Study Materials to start an AI session.');
+        setSessionLoading(false);
+        return;
+      }
       try {
         const response = await schoolApi.startAiStudy(topicId);
-        if (response && response.sessionId) {
-          setSessionId(response.sessionId);
-        } else if (response && response.data && response.data.sessionId) {
-          setSessionId(response.data.sessionId);
-        } else {
-          setSessionId('mock-session-123'); // fallback
+        const payload = response?.data ?? response;
+        if (!payload?.sessionId) {
+          setSessionError('Could not start an AI study session for this topic.');
+          return;
         }
-      } catch (err) {
+        setSessionId(payload.sessionId);
+        setNotes(payload.notes ?? payload.content ?? '');
+        setFlashcards(Array.isArray(payload.flashcards) ? payload.flashcards : []);
+        if (payload.summary) {
+          setChatHistory([{ id: 1, sender: 'ai', text: payload.summary }]);
+        }
+      } catch (err: any) {
         console.error("Failed to start AI session", err);
-        setSessionId('mock-session-123');
+        setSessionError(err?.message || 'Could not start an AI study session.');
+      } finally {
+        setSessionLoading(false);
       }
     };
     initAiSession();
   }, [topicId]);
   
-  const [chatHistory, setChatHistory] = useState([
-    {
-      id: 1,
-      sender: 'ai',
-      text: "This topic is about the movement towards civil disobedience in India during the struggle for independence, why it matters in understanding the country's path to freedom, and what it helps us understand about the power of non-violent resistance in achieving social and political change. By studying this topic, you will gain insights into the historical context and key events that led to the adoption of civil disobedience as a strategy by Indian nationalists."
-    }
-  ]);
+  const [chatHistory, setChatHistory] = useState<{ id: number; sender: string; text: string }[]>([]);
 
   const toggleTab = (tab: 'notes' | 'ai') => setActiveTab(tab);
 
   const openFlashcards = () => {
+    if (flashcards.length === 0) return;
     setCurrentCardIndex(0);
     setIsCardFlipped(false);
     setFlashcardModalVisible(true);
   };
 
   const nextCard = () => {
-    if (currentCardIndex < MOCK_FLASHCARDS.length - 1) {
+    if (currentCardIndex < flashcards.length - 1) {
       setCurrentCardIndex(prev => prev + 1);
       setIsCardFlipped(false);
     }
@@ -89,15 +83,24 @@ export function AiStudyScreen({ onNavigate, routeParams }: any) {
     setChatHistory([...chatHistory, newUserMsg]);
     setChatInput('');
     
+    if (!topicId || !sessionId) {
+      setChatHistory(prev => [...prev, { id: Date.now(), sender: 'ai', text: 'No active study session, so I cannot answer yet.' }]);
+      return;
+    }
+
     try {
       const response = await schoolApi.askAiQuestion(topicId, sessionId, { message: chatInput });
       setChatHistory(prev => [...prev, { id: Date.now(), sender: 'ai', text: response.reply || response.data?.reply || "I couldn't process that." }]);
     } catch (e) {
-      setChatHistory(prev => [...prev, { id: Date.now(), sender: 'ai', text: "Network error simulating AI response." }]);
+      setChatHistory(prev => [...prev, { id: Date.now(), sender: 'ai', text: "Sorry, I could not reach the tutor. Please try again." }]);
     }
   };
 
   const handleComplete = async () => {
+    if (!topicId || !sessionId) {
+      Alert.alert('Not available', 'There is no active study session to complete.');
+      return;
+    }
     try {
       await schoolApi.completeAiStudy(topicId, sessionId);
       Alert.alert('Success', 'Topic marked as complete!', [{ text: 'OK', onPress: () => onNavigate('dashboard') }]);
@@ -155,26 +158,21 @@ export function AiStudyScreen({ onNavigate, routeParams }: any) {
         <View style={styles.notesContainer}>
           <ScrollView contentContainerStyle={styles.notesContent} showsVerticalScrollIndicator={false}>
             <Text style={styles.notesMarkdownTitle}>Revision Notes</Text>
-            <Text style={styles.notesMarkdownHeading}>Towards Civil Disobedience</Text>
-            
-            <View style={styles.markdownSection}>
-              <View style={{flexDirection: 'row', alignItems: 'center', marginBottom: vs(8)}}>
-                 <Text style={{fontSize: ms(20), marginRight: hs(8)}}>🎯</Text>
-                 <Text style={styles.markdownH2}>What You'll Learn</Text>
-              </View>
-              <Text style={styles.markdownP}>
-                This topic is about the movement towards civil disobedience in India during the struggle for independence, why it matters in understanding the country's path to freedom, and what it helps us understand about the power of non-violent resistance in achieving social and political change. By studying this topic, you will gain insights into the historical context and key events that led to the adoption of civil disobedience as a strategy by Indian nationalists. This will also help you appreciate the significance of non-violent movements in shaping the world's political landscape.
-              </Text>
-            </View>
+            {!!routeParams?.title && (
+              <Text style={styles.notesMarkdownHeading}>{routeParams.title}</Text>
+            )}
 
+            {/* Notes come from the AI study session for this topic. */}
             <View style={styles.markdownSection}>
-              <View style={{flexDirection: 'row', alignItems: 'center', marginBottom: vs(8)}}>
-                 <Text style={{fontSize: ms(20), marginRight: hs(8)}}>📖</Text>
-                 <Text style={styles.markdownH2}>Introduction & Background</Text>
-              </View>
-              <Text style={styles.markdownP}>
-                The movement towards civil disobedience in India was a significant development in the country's struggle for independence from British rule. It emerged as a response to the failure of the Non-Cooperation Movement...
-              </Text>
+              {sessionLoading ? (
+                <ActivityIndicator color={theme.primary} style={{ marginTop: vs(24) }} />
+              ) : sessionError ? (
+                <Text style={styles.markdownP}>{sessionError}</Text>
+              ) : notes ? (
+                <Text style={styles.markdownP}>{notes}</Text>
+              ) : (
+                <Text style={styles.markdownP}>No notes have been generated for this topic yet.</Text>
+              )}
             </View>
 
             {/* Session Progress Block */}
@@ -292,9 +290,9 @@ export function AiStudyScreen({ onNavigate, routeParams }: any) {
             </View>
 
             <View style={styles.cardProgressRow}>
-              <Text style={styles.cardProgressText}>CARD {currentCardIndex + 1} OF {MOCK_FLASHCARDS.length}</Text>
+              <Text style={styles.cardProgressText}>CARD {currentCardIndex + 1} OF {flashcards.length}</Text>
               <View style={styles.progressBarBg}>
-                <View style={[styles.progressBarFill, { width: `${((currentCardIndex + 1) / MOCK_FLASHCARDS.length) * 100}%` }]} />
+                <View style={[styles.progressBarFill, { width: `${((currentCardIndex + 1) / flashcards.length) * 100}%` }]} />
               </View>
             </View>
 
@@ -305,7 +303,7 @@ export function AiStudyScreen({ onNavigate, routeParams }: any) {
             >
               <Text style={styles.flashcardLabel}>{isCardFlipped ? "ANSWER" : "QUESTION"}</Text>
               <Text style={styles.flashcardText}>
-                {isCardFlipped ? MOCK_FLASHCARDS[currentCardIndex].a : MOCK_FLASHCARDS[currentCardIndex].q}
+                {isCardFlipped ? flashcards[currentCardIndex]?.a : flashcards[currentCardIndex]?.q}
               </Text>
               {!isCardFlipped && (
                 <Text style={styles.flashcardHint}>Click to reveal answer</Text>
@@ -316,7 +314,7 @@ export function AiStudyScreen({ onNavigate, routeParams }: any) {
               <TouchableOpacity style={styles.prevBtn} onPress={prevCard} disabled={currentCardIndex === 0}>
                 <Text style={[styles.prevBtnText, currentCardIndex === 0 && {color: theme.border}]}>Previous</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.nextBtn} onPress={nextCard} disabled={currentCardIndex === MOCK_FLASHCARDS.length - 1}>
+              <TouchableOpacity style={styles.nextBtn} onPress={nextCard} disabled={currentCardIndex === flashcards.length - 1}>
                 <Text style={styles.nextBtnText}>Next</Text>
                 <ArrowRight size={ms(16)} color={theme.surface} style={{marginLeft: hs(8)}} />
               </TouchableOpacity>
@@ -350,7 +348,7 @@ const getStyles = (theme: any) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: theme.background },
-  header: { paddingTop: Platform.OS === 'android' ? 40 : 60, backgroundColor: theme.surface, borderBottomWidth: 1, borderBottomColor: theme.border, paddingBottom: vs(16) },
+  header: { paddingTop: vs(12), backgroundColor: theme.surface, borderBottomWidth: 1, borderBottomColor: theme.border, paddingBottom: vs(16) },
   headerTop: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: hs(16), marginBottom: vs(16) },
   backBtn: { width: hs(40), height: hs(40), borderRadius: ms(20), backgroundColor: theme.surfaceAlt, justifyContent: 'center', alignItems: 'center' },
   aiBadge: { alignSelf: 'flex-start', backgroundColor: '#EFF6FF', paddingHorizontal: hs(8), paddingVertical: vs(4), borderRadius: ms(12), marginBottom: vs(4) },
@@ -380,7 +378,7 @@ const getStyles = (theme: any) => StyleSheet.create({
   sessionProgressTitle: { fontFamily: 'Poppins-SemiBold', fontSize: ms(16), color: theme.text, marginLeft: hs(8) },
   sessionProgressSub: { fontFamily: 'Poppins-Regular', fontSize: ms(13), color: theme.subtext, marginBottom: vs(20) },
 
-  studyToolkitBar: { position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: theme.surface, padding: ms(16), paddingBottom: Platform.OS === 'ios' ? vs(32) : ms(16), borderTopWidth: 1, borderTopColor: theme.border, shadowColor: '#000', shadowOffset: {width: 0, height: -4}, shadowOpacity: 0.05, shadowRadius: ms(8), elevation: 10 },
+  studyToolkitBar: { position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: theme.surface, padding: ms(16), paddingBottom: Platform.OS === 'ios' ? vs(32) : ms(16), borderTopWidth: 1, borderTopColor: theme.border, shadowColor: '#000', shadowOffset: {width: 0, height: vs(-4)}, shadowOpacity: 0.05, shadowRadius: ms(8), elevation: 10 },
   toolkitHeader: { marginBottom: vs(12) },
   toolkitTitle: { fontFamily: 'Poppins-SemiBold', fontSize: ms(14), color: theme.text },
   toolkitBtns: { flexDirection: 'row', gap: ms(12) },

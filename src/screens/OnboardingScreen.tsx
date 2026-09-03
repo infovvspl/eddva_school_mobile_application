@@ -133,7 +133,7 @@ export function OnboardingScreen({
         {/* Right Arrow Button */}
         <View style={styles.footerSpacer}>
           <TouchableOpacity style={styles.nextBtn} onPress={goNext} activeOpacity={0.8}>
-            <ArrowRight size={24} color={theme.surface} />
+            <ArrowRight size={ms(24)} color={theme.surface} />
           </TouchableOpacity>
         </View>
       </View>
@@ -187,14 +187,14 @@ const getStyles = (theme: any) => StyleSheet.create({
     marginTop: vs(10),
   },
   titleTop: {
-    fontFamily: 'Poppins-Bold',
+    fontFamily: 'Poppins-Medium',
     fontSize: ms(32),
     color: theme.text,
     textAlign: 'center',
     lineHeight: ms(40),
   },
   titleBottom: {
-    fontFamily: 'Poppins-Bold',
+    fontFamily: 'Poppins-Medium',
     fontSize: ms(32),
     color: '#6366F1', // Purple color
     textAlign: 'center',

@@ -1,220 +1,364 @@
-import React, { useEffect, useState } from 'react';
-import { ScrollView, StyleSheet, Text, View, TouchableOpacity, ActivityIndicator, Alert, Platform, StatusBar, Modal } from 'react-native';
+import React, { useEffect, useMemo, useState } from 'react';
+import {
+  ScrollView, StyleSheet, Text, View, TouchableOpacity, ActivityIndicator, Modal,
+} from 'react-native';
 import { hs, vs, ms } from '../utils/responsive';
-import { BookOpen, FileText, LayoutList, Trophy, GraduationCap, CheckCircle, Clock, ChevronDown, Check, BarChart2 } from 'lucide-react-native';
-import { schoolApi } from '../utils/api';
+import {
+  ArrowLeft, ChevronDown, Check, X, Clock, ListChecks, CalendarDays,
+  PlayCircle, RotateCw, Hourglass, Trophy, AlertCircle, Lock,
+} from 'lucide-react-native';
 import { useAppTheme } from '../context/ThemeContext';
+import { schoolApi } from '../utils/api';
 
-const CATEGORIES = [
-  { id: 'Topic Test', label: 'Topic Tests', icon: FileText },
-  { id: 'Chapter Test', label: 'Chapter Tests', icon: LayoutList },
-  { id: 'Subject Test', label: 'Subject Tests', icon: BookOpen },
-  { id: 'Mock Test', label: 'Mock Tests', icon: Trophy },
-  { id: 'Final Exam', label: 'Final Exams', icon: GraduationCap },
-];
+type Bucket = 'todo' | 'closed' | 'active' | 'awaiting' | 'result';
+
+const TYPE_LABEL: Record<string, string> = {
+  topic: 'Topic Test',
+  chapter: 'Chapter Test',
+  subject: 'Subject Test',
+  exam: 'Mock Test',
+  final: 'Final Exam',
+};
+
+const subjectOf = (a: any) => a.subjectName || a.subject_name || '';
+
+/**
+ * The server closes a test once its window has passed and rejects /start with
+ * "Assessment window has ended". Detect it here so a dead Start button is never
+ * offered; the server stays authoritative if the rule is finer than this.
+ */
+const windowClosed = (a: any) => {
+  const raw = a.scheduled_date;
+  if (!raw) return false;
+  const d = new Date(raw);
+  if (isNaN(d.getTime())) return false;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return d.getTime() < today.getTime();
+};
+const scoreOf = (a: any) => {
+  const m = a.mySubmission;
+  const got = Number(m?.objective_score);
+  const total = Number(m?.objective_total);
+  if (!m || !isFinite(got) || !isFinite(total) || total <= 0) return null;
+  return { got, total, pct: Math.round((got / total) * 100) };
+};
+
+/** Count questions without trusting the payload to be pre-parsed. */
+const questionCount = (a: any) => {
+  let q = a.questions_json;
+  if (typeof q === 'string') {
+    try { q = JSON.parse(q); } catch { return null; }
+  }
+  const list = Array.isArray(q) ? q : q?.questions;
+  return Array.isArray(list) ? list.length : null;
+};
+
+/**
+ * What the student can actually do with this assessment. The record carries an
+ * assessment lifecycle, a submission status and a grading status; the useful
+ * state is a combination of all three.
+ */
+const attemptExpired = (a: any) => {
+  const exp = a.mySubmission?.expires_at;
+  if (!exp) return false;
+  const d = new Date(exp);
+  return !isNaN(d.getTime()) && d.getTime() < Date.now();
+};
+
+const bucketOf = (a: any): Bucket => {
+  const m = a.mySubmission;
+  if (!m) return windowClosed(a) ? 'closed' : 'todo';
+  // A started attempt past its expires_at cannot be resumed: /start returns
+  // "Assessment window has ended", so it must not offer a Resume button.
+  if (m.status === 'in_progress') return attemptExpired(a) ? 'closed' : 'active';
+  if (scoreOf(a) || m.grading_status === 'reviewed_published' || m.status === 'evaluated') {
+    return 'result';
+  }
+  return 'awaiting';
+};
+
+// A score can be published, or only the objective half of it graded so far.
+const isProvisional = (a: any) =>
+  a.mySubmission?.grading_status && a.mySubmission.grading_status !== 'reviewed_published';
+
+const shortDate = (iso: any) => {
+  if (!iso) return null;
+  const d = new Date(iso);
+  return isNaN(d.getTime())
+    ? null
+    : d.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
+};
 
 export function AssessmentsScreen({ onNavigate }: any) {
-  const { theme, isDarkMode, toggleTheme } = useAppTheme();
+  const { theme } = useAppTheme();
   const styles = getStyles(theme);
 
   const [loading, setLoading] = useState(true);
-  const [assessments, setAssessments] = useState<any[]>([]);
-  const [activeCategory, setActiveCategory] = useState('Topic Test');
-  const [activeSubTab, setActiveSubTab] = useState('Available Tests');
-  const [activeSubject, setActiveSubject] = useState('All Subjects');
-  const [subjectDropdownVisible, setSubjectDropdownVisible] = useState(false);
+  const [items, setItems] = useState<any[]>([]);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [filter, setFilter] = useState<'all' | Bucket>('all');
+  const [subject, setSubject] = useState<string | null>(null);
+  const [subjectOpen, setSubjectOpen] = useState(false);
 
   useEffect(() => {
-    const fetchAssessments = async () => {
-      setLoading(true);
-      try {
-        const data = await schoolApi.getAssessments();
-        let records = [];
-        if (Array.isArray(data)) records = data;
-        else if (data && Array.isArray(data.data)) records = data.data;
-        else if (data && Array.isArray(data.assessments)) records = data.assessments;
-        else if (data && Array.isArray(data.results)) records = data.results;
-        
-        if (records.length === 0) {
-          records = [
-            { id: '1', title: 'Mathematics: Algebra Basics', type: 'Topic Test', subject: 'Mathematics', maxMarks: 50, timeAllowed: '45 mins', score: 42, date: '10/05/2026', classInfo: 'Class 9' },
-            { id: '2', title: 'Physics: Laws of Motion', type: 'Chapter Test', subject: 'Science', maxMarks: 100, timeAllowed: '1.5 hrs', score: 85, date: '12/05/2026', classInfo: 'Class 9' },
-            { id: '3', title: 'English: Grammar & Vocab', type: 'Topic Test', subject: 'English', maxMarks: 30, timeAllowed: '30 mins', score: 25, date: '15/05/2026', classInfo: 'Class 9' },
-            { id: '4', title: 'History: World War I', type: 'Subject Test', subject: 'Social Studies', maxMarks: 80, timeAllowed: '2 hrs', score: 0, date: 'Upcoming', classInfo: 'Class 9' },
-          ];
-        }
-        
-        setAssessments(records);
-      } catch (err) {
-        console.error(err);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchAssessments();
+    schoolApi
+      .getAssessments()
+      .then((res: any) => {
+        const list = Array.isArray(res) ? res : (res?.data ?? res?.assessments ?? []);
+        setItems(Array.isArray(list) ? list : []);
+      })
+      .catch((e: any) => setLoadError(e?.message || 'Could not load assessments.'))
+      .finally(() => setLoading(false));
   }, []);
 
-  const subjects = ['All Subjects', ...new Set(assessments.map(a => a.subject).filter(Boolean))];
+  const subjects = useMemo(
+    () => Array.from(new Set(items.map(subjectOf).filter(Boolean))).sort(),
+    [items],
+  );
 
-  const filteredAssessments = assessments.filter(a => {
-    const matchesCategory = a.type === activeCategory;
-    const matchesSubject = activeSubject === 'All Subjects' || a.subject === activeSubject;
-    return matchesCategory && matchesSubject;
-  });
+  const counts = useMemo(() => {
+    const c = { todo: 0, closed: 0, active: 0, awaiting: 0, result: 0 };
+    items.forEach(a => { c[bucketOf(a)] += 1; });
+    return c;
+  }, [items]);
+
+  // Anything in progress first (it can expire), then unattempted work.
+  const visible = useMemo(() => {
+    const rank: Record<Bucket, number> = { active: 0, todo: 1, awaiting: 2, result: 3, closed: 4 };
+    return items
+      .filter(a => filter === 'all' || bucketOf(a) === filter)
+      .filter(a => !subject || subjectOf(a) === subject)
+      .sort((a, b) => {
+        const r = rank[bucketOf(a)] - rank[bucketOf(b)];
+        if (r !== 0) return r;
+        return new Date(b.scheduled_date ?? 0).getTime() - new Date(a.scheduled_date ?? 0).getTime();
+      });
+  }, [items, filter, subject]);
+
+  const STATE: Record<Bucket, { label: string; fg: string; bg: string; Icon: any }> = {
+    todo: { label: 'Not attempted', fg: '#B45309', bg: '#FEF3C7', Icon: PlayCircle },
+    closed: { label: 'Window closed', fg: '#64748B', bg: '#F1F5F9', Icon: Lock },
+    active: { label: 'In progress', fg: '#7C3AED', bg: '#EDE9FE', Icon: RotateCw },
+    awaiting: { label: 'Awaiting result', fg: '#1D4ED8', bg: '#DBEAFE', Icon: Hourglass },
+    result: { label: 'Result out', fg: '#047857', bg: '#D1FAE5', Icon: Trophy },
+  };
+
+  const scoreTone = (pct: number) =>
+    pct >= 60 ? '#047857' : pct >= 35 ? '#B45309' : '#B91C1C';
 
   return (
     <View style={styles.container}>
-      {/* Header matching web app (Clean White) */}
       <View style={styles.header}>
-        <Text style={styles.pageTitle}>Assessments</Text>
-        <Text style={styles.pageSub}>Practice tests, topic tests, unit tests, subject tests, mock exams, and final exams.</Text>
+        <TouchableOpacity onPress={() => onNavigate && onNavigate('dashboard')} style={styles.back}>
+          <ArrowLeft size={ms(22)} color={theme.text} />
+        </TouchableOpacity>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.title}>Assessments</Text>
+          <Text style={styles.subtitle}>Tests, mock exams and your results</Text>
+        </View>
       </View>
 
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        
-        {/* Main Nav Categories */}
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoriesContainer} style={styles.categoriesScroll}>
-          {CATEGORIES.map(cat => {
-            const isActive = activeCategory === cat.id;
-            const IconComponent = cat.icon;
-            return (
-              <TouchableOpacity 
-                key={cat.id} 
-                style={[styles.categoryTab, isActive && styles.categoryTabActive]}
-                onPress={() => setActiveCategory(cat.id)}
-              >
-                <IconComponent size={ms(16)} color={isActive ? theme.surface : theme.subtext} style={{marginRight: hs(8)}} />
-                <Text style={[styles.categoryText, isActive && styles.categoryTextActive]}>{cat.label}</Text>
-              </TouchableOpacity>
-            );
-          })}
-        </ScrollView>
+      {!loading && items.length > 0 && (
+        <>
+          <View style={styles.summary}>
+            {([
+              { n: counts.todo, label: 'To attempt', fg: '#B45309', bg: '#FFFBEB' },
+              { n: counts.active, label: 'In progress', fg: '#7C3AED', bg: '#F5F3FF' },
+              { n: counts.awaiting, label: 'Awaiting', fg: '#1D4ED8', bg: '#EFF6FF' },
+              { n: counts.result, label: 'Results', fg: '#047857', bg: '#ECFDF5' },
+            ]).map(s => (
+              <View key={s.label} style={[styles.summaryCard, { backgroundColor: s.bg }]}>
+                <Text style={[styles.summaryNum, { color: s.fg }]}>{s.n}</Text>
+                <Text style={[styles.summaryLabel, { color: s.fg }]}>{s.label}</Text>
+              </View>
+            ))}
+          </View>
 
-        {/* Subject Filter Row */}
-        <View style={styles.subjectFilterRow}>
-          <Text style={styles.subjectLabel}>SUBJECT</Text>
-          <TouchableOpacity style={styles.subjectDropdownBtn} onPress={() => setSubjectDropdownVisible(true)} activeOpacity={0.7}>
-            <Text style={styles.subjectDropdownText}>{activeSubject}</Text>
-            <ChevronDown size={ms(16)} color={theme.subtext} />
+          {counts.active > 0 && (
+            <View style={styles.alert}>
+              <AlertCircle size={ms(15)} color="#6D28D9" />
+              <Text style={styles.alertText}>
+                {counts.active} attempt{counts.active > 1 ? 's are' : ' is'} still open — resume before it expires
+              </Text>
+            </View>
+          )}
+
+          <View style={styles.filterRow}>
+            {([
+              { id: 'all', label: `All (${items.length})` },
+              { id: 'todo', label: `To attempt (${counts.todo})` },
+              { id: 'active', label: `In progress (${counts.active})` },
+              { id: 'awaiting', label: `Awaiting (${counts.awaiting})` },
+              { id: 'result', label: `Results (${counts.result})` },
+              { id: 'closed', label: `Closed (${counts.closed})` },
+            ] as const).map(f => {
+              const on = filter === f.id;
+              return (
+                <TouchableOpacity
+                  key={f.id}
+                  style={[styles.chip, on && styles.chipOn]}
+                  onPress={() => setFilter(f.id)}
+                  activeOpacity={0.85}
+                >
+                  <Text style={[styles.chipText, on && styles.chipTextOn]}>{f.label}</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+
+          <TouchableOpacity
+            style={styles.subjectBtn}
+            onPress={() => setSubjectOpen(true)}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.subjectText} numberOfLines={1}>
+              {subject ?? 'All subjects'}
+            </Text>
+            <ChevronDown size={ms(15)} color={theme.subtext} />
           </TouchableOpacity>
-        </View>
+        </>
+      )}
 
-        {/* Sub Nav Tabs */}
-        <View style={styles.subTabsContainer}>
-          {['Available Tests', 'My Results', 'Issues'].map((tab) => {
-             const isActive = activeSubTab === tab;
-             return (
-               <TouchableOpacity key={tab} style={styles.subTab} onPress={() => setActiveSubTab(tab)}>
-                 <Text style={[styles.subTabText, isActive && styles.subTabTextActive]}>{tab}</Text>
-                 {isActive && <View style={styles.subTabActiveIndicator} />}
-               </TouchableOpacity>
-             )
-          })}
-        </View>
-
+      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         {loading ? (
           <ActivityIndicator size="large" color={theme.primary} style={{ marginTop: vs(40) }} />
+        ) : visible.length === 0 ? (
+          <Text style={styles.empty}>
+            {loadError || (items.length ? 'Nothing in this list.' : 'No assessments yet.')}
+          </Text>
         ) : (
-          <View style={styles.cardsGrid}>
-            {filteredAssessments.length === 0 ? (
-              <View style={styles.emptyStateContainer}>
-                <Text style={styles.emptyTitle}>No tests found</Text>
-              </View>
-            ) : (
-              activeSubTab === 'My Results' ? (
-                /* Results List View */
-                filteredAssessments.map((item, idx) => {
-                  const grade = item.score >= 75 ? 'A' : item.score >= 50 ? 'B' : 'C';
-                  return (
-                  <View key={idx} style={styles.resultCard}>
-                    <View style={styles.resultCardLeft}>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: vs(8) }}>
-                        <View style={styles.typeBadge}><Text style={styles.typeBadgeText}>TOPIC</Text></View>
-                        <View style={[styles.gradeBadge, { backgroundColor: '#DBEAFE' }]}><Text style={[styles.gradeBadgeText, { color: theme.primary }]}>{grade}</Text></View>
-                      </View>
-                      <Text style={styles.cardTitle}>{item.title}</Text>
-                      <Text style={styles.cardClassInfo}>{item.maxMarks} marks • {item.timeAllowed} • {item.date || '6/20/2026'}</Text>
-                      
-                      <View style={styles.progressSection}>
-                        <Text style={styles.progressText}>{item.score || 0} / {item.maxMarks} marks</Text>
-                        <View style={styles.progressBarBg}>
-                          <View style={[styles.progressBarFill, { width: `${(item.score / item.maxMarks) * 100}%` }]} />
-                        </View>
-                        <View style={styles.progressMarks}>
-                          <Text style={styles.progressMarkText}>0</Text>
-                          <Text style={[styles.progressMarkText, { color: '#EF4444' }]}>Pass: 33%</Text>
-                          <Text style={[styles.progressMarkText, { color: '#10B981' }]}>Distinction: 75%</Text>
-                          <Text style={styles.progressMarkText}>100</Text>
-                        </View>
-                      </View>
-                    </View>
-                    
-                    <View style={styles.resultCardRight}>
-                       <View style={styles.scoreCircle}>
-                         <Text style={styles.scoreCircleText}>{item.score}%</Text>
-                       </View>
-                       <TouchableOpacity style={styles.viewResultBtn}>
-                         <BarChart2 size={ms(14)} color={theme.primary} />
-                         <Text style={styles.viewResultBtnText}>View</Text>
-                       </TouchableOpacity>
-                    </View>
-                  </View>
-                )})
-              ) : (
-                /* Available Tests Grid View */
-                filteredAssessments.map((item, idx) => (
-                  <View key={idx} style={styles.assessmentCard}>
-                    <View style={styles.cardHeaderRow}>
-                      <View style={styles.typeBadge}><Text style={styles.typeBadgeText}>TOPIC</Text></View>
-                      <Text style={styles.scheduledText}>scheduled</Text>
-                    </View>
-                    
-                    <Text style={styles.cardTitle}>{item.title}</Text>
-                    <Text style={styles.cardClassInfo}>Class: {item.classInfo} | Subject: {item.subject} | Max Marks: {item.maxMarks} | Time Allowed: {item.timeAllowed}</Text>
-                    
-                    <View style={styles.cardMetaGrid}>
-                      <View style={styles.metaItem}>
-                        <Clock size={ms(14)} color={theme.subtext} />
-                        <Text style={styles.metaItemText}>{item.timeAllowed}</Text>
-                      </View>
-                      <Text style={styles.metaItemText}>{item.maxMarks} marks</Text>
-                    </View>
+          visible.map(item => {
+            const bucket = bucketOf(item);
+            const meta = STATE[bucket];
+            const score = scoreOf(item);
+            const qCount = questionCount(item);
+            const when = shortDate(item.scheduled_date);
+            const provisional = bucket === 'result' && isProvisional(item);
 
-                    <View style={styles.cardActions}>
-                      <TouchableOpacity style={[styles.submittedOnlineBtn, { backgroundColor: theme.primary, borderWidth: 0 }]} onPress={() => onNavigate('exam', { assessmentId: item.id, title: item.title })}>
-                        <Text style={[styles.submittedOnlineText, { color: '#fff' }]}>Start Exam</Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity style={styles.viewSubmissionBtn}>
-                        <FileText size={ms(14)} color={theme.primary} />
-                        <Text style={styles.viewSubmissionText}>View details</Text>
-                      </TouchableOpacity>
+            return (
+              <View key={item.mySubmission?.id ?? item.id} style={styles.card}>
+                <View style={[styles.rail, { backgroundColor: meta.fg }]} />
+                <View style={styles.cardBody}>
+                  <View style={styles.cardTop}>
+                    <View style={styles.typeChip}>
+                      <Text style={styles.typeChipText}>
+                        {TYPE_LABEL[item.type] ?? String(item.type ?? 'Test')}
+                      </Text>
+                    </View>
+                    <View style={[styles.pill, { backgroundColor: meta.bg }]}>
+                      <meta.Icon size={ms(11)} color={meta.fg} />
+                      <Text style={[styles.pillText, { color: meta.fg }]}>{meta.label}</Text>
                     </View>
                   </View>
-                ))
-              )
-            )}
-          </View>
+
+                  <Text style={styles.name}>{item.title || 'Assessment'}</Text>
+                  {!!subjectOf(item) && (
+                    <Text style={styles.subjectLine}>{subjectOf(item)}</Text>
+                  )}
+
+                  <View style={styles.metaRow}>
+                    {!!item.duration_minutes && (
+                      <View style={styles.meta}>
+                        <Clock size={ms(12)} color={theme.subtext} />
+                        <Text style={styles.metaText}>{item.duration_minutes} min</Text>
+                      </View>
+                    )}
+                    {qCount != null && (
+                      <View style={styles.meta}>
+                        <ListChecks size={ms(12)} color={theme.subtext} />
+                        <Text style={styles.metaText}>{qCount} questions</Text>
+                      </View>
+                    )}
+                    {!!when && (
+                      <View style={styles.meta}>
+                        <CalendarDays size={ms(12)} color={theme.subtext} />
+                        <Text style={styles.metaText}>{when}</Text>
+                      </View>
+                    )}
+                  </View>
+
+                  {score && (
+                    <View style={styles.scoreBox}>
+                      <View style={styles.scoreLeft}>
+                        <Text style={[styles.scorePct, { color: scoreTone(score.pct) }]}>
+                          {score.pct}%
+                        </Text>
+                        <Text style={styles.scoreRaw}>
+                          {score.got} / {score.total}
+                          {item.total_marks ? `  ·  paper total ${Number(item.total_marks)}` : ''}
+                        </Text>
+                      </View>
+                      <View style={styles.barTrack}>
+                        <View
+                          style={[
+                            styles.barFill,
+                            { width: `${score.pct}%`, backgroundColor: scoreTone(score.pct) },
+                          ]}
+                        />
+                      </View>
+                    </View>
+                  )}
+
+                  {provisional && (
+                    <Text style={styles.provisional}>
+                      Objective section graded · written answers still under review
+                    </Text>
+                  )}
+
+                  {bucket === 'closed' && (
+                    <Text style={styles.closedNote}>
+                      {item.mySubmission
+                        ? 'Your attempt expired and can no longer be resumed.'
+                        : 'This test is no longer open for attempts.'}
+                    </Text>
+                  )}
+
+                  {(bucket === 'todo' || bucket === 'active') && (
+                    <TouchableOpacity
+                      style={[styles.cta, bucket === 'active' && styles.ctaResume]}
+                      onPress={() => onNavigate('exam', { assessmentId: item.id, title: item.title })}
+                      activeOpacity={0.85}
+                    >
+                      {bucket === 'active'
+                        ? <RotateCw size={ms(14)} color="#FFF" />
+                        : <PlayCircle size={ms(14)} color="#FFF" />}
+                      <Text style={styles.ctaText}>
+                        {bucket === 'active' ? 'Resume attempt' : 'Start test'}
+                      </Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+              </View>
+            );
+          })
         )}
       </ScrollView>
 
-      {/* Subject Dropdown Modal */}
-      <Modal visible={subjectDropdownVisible} animationType="fade" transparent={true} onRequestClose={() => setSubjectDropdownVisible(false)}>
-        <TouchableOpacity style={styles.dropdownOverlay} activeOpacity={1} onPress={() => setSubjectDropdownVisible(false)}>
-          <View style={styles.dropdownContent}>
-            <Text style={styles.dropdownTitle}>Select Subject</Text>
-            <ScrollView showsVerticalScrollIndicator={false}>
-              {subjects.map((sub, idx) => (
-                <TouchableOpacity 
-                  key={idx} 
-                  style={[styles.dropdownItem, activeSubject === sub && styles.dropdownItemActive]} 
-                  onPress={() => { setActiveSubject(sub as string); setSubjectDropdownVisible(false); }}
+      <Modal visible={subjectOpen} transparent animationType="slide" onRequestClose={() => setSubjectOpen(false)}>
+        <TouchableOpacity style={styles.backdrop} activeOpacity={1} onPress={() => setSubjectOpen(false)}>
+          <TouchableOpacity style={styles.sheet} activeOpacity={1}>
+            <View style={styles.sheetHeader}>
+              <Text style={styles.sheetTitle}>Subject</Text>
+              <TouchableOpacity onPress={() => setSubjectOpen(false)} style={{ padding: ms(4) }}>
+                <X size={ms(20)} color={theme.subtext} />
+              </TouchableOpacity>
+            </View>
+            <ScrollView>
+              {[null, ...subjects].map((s, i) => (
+                <TouchableOpacity
+                  key={s ?? `all-${i}`}
+                  style={styles.sheetRow}
+                  onPress={() => { setSubject(s); setSubjectOpen(false); }}
                 >
-                  <Text style={[styles.dropdownItemText, activeSubject === sub && styles.dropdownItemTextActive]}>{sub as string}</Text>
-                  {activeSubject === sub && <Check size={ms(16)} color={theme.primary} />}
+                  <Text style={[styles.sheetRowText, subject === s && styles.sheetRowTextOn]}>
+                    {s ?? 'All subjects'}
+                  </Text>
+                  {subject === s && <Check size={ms(17)} color={theme.primary} />}
                 </TouchableOpacity>
               ))}
             </ScrollView>
-          </View>
+          </TouchableOpacity>
         </TouchableOpacity>
       </Modal>
     </View>
@@ -222,88 +366,188 @@ export function AssessmentsScreen({ onNavigate }: any) {
 }
 
 const getStyles = (theme: any) => StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: theme.surface },
-  
-  header: { 
-    backgroundColor: theme.surface, 
-    paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight || 24) + 10 : 60, 
-    paddingHorizontal: hs(20), 
-    paddingBottom: vs(20) 
+  container: { flex: 1, backgroundColor: theme.background },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: hs(16),
+    paddingTop: vs(12),
+    paddingBottom: vs(10),
   },
-  pageTitle: { fontFamily: 'Poppins-SemiBold', fontSize: ms(24), color: theme.text, marginBottom: vs(4) },
-  pageSub: { fontFamily: 'Poppins-Regular', fontSize: ms(13), color: theme.subtext },
-  
-  content: { padding: ms(20), paddingTop: 0, paddingBottom: vs(100) },
-  
-  categoriesScroll: { marginBottom: vs(24) },
-  categoriesContainer: { gap: ms(12), paddingRight: hs(20) },
-  categoryTab: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: hs(16), paddingVertical: vs(12), borderRadius: ms(12), backgroundColor: theme.surface, borderWidth: 1, borderColor: theme.border },
-  categoryTabActive: { backgroundColor: theme.primary, borderColor: theme.primary },
-  categoryText: { fontFamily: 'Poppins-Medium', fontSize: ms(13), color: theme.subtext },
-  categoryTextActive: { color: theme.surface },
-  
-  subjectFilterRow: { marginBottom: vs(24) },
-  subjectLabel: { fontFamily: 'Poppins-Medium', fontSize: ms(11), color: theme.subtext, letterSpacing: 0.5, marginBottom: vs(8) },
-  subjectDropdownBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: theme.surface, borderWidth: 1, borderColor: theme.border, paddingHorizontal: hs(16), paddingVertical: vs(12), borderRadius: ms(12), width: hs(200) },
-  subjectDropdownText: { fontFamily: 'Poppins-Medium', fontSize: ms(13), color: theme.text },
+  back: { padding: ms(4), marginRight: hs(10), marginLeft: -ms(4) },
+  title: { fontSize: ms(23), fontWeight: '700', color: theme.text },
+  subtitle: { fontSize: ms(13), lineHeight: ms(18), color: theme.subtext, marginTop: vs(1) },
 
-  subTabsContainer: { flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: theme.border, marginBottom: vs(24), gap: ms(24) },
-  subTab: { paddingBottom: vs(12), position: 'relative' },
-  subTabText: { fontFamily: 'Poppins-Medium', fontSize: ms(14), color: theme.subtext },
-  subTabTextActive: { color: theme.primary, fontFamily: 'Poppins-SemiBold' },
-  subTabActiveIndicator: { position: 'absolute', bottom: -1, left: 0, right: 0, height: 2, backgroundColor: theme.primary },
+  summary: { flexDirection: 'row', gap: hs(7), paddingHorizontal: hs(16) },
+  summaryCard: { flex: 1, borderRadius: ms(12), paddingVertical: vs(10), alignItems: 'center' },
+  summaryNum: { fontSize: ms(19), lineHeight: ms(26), fontWeight: '700' },
+  summaryLabel: { fontSize: ms(10), lineHeight: ms(14), fontWeight: '600', marginTop: vs(1) },
 
-  cardsGrid: { gap: ms(16) },
-  
-  // Available Tests Card
-  assessmentCard: { backgroundColor: theme.surface, borderRadius: ms(16), padding: ms(20), borderWidth: 1, borderColor: theme.border },
-  cardHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: vs(12) },
-  typeBadge: { backgroundColor: '#EFF6FF', paddingHorizontal: hs(10), paddingVertical: vs(4), borderRadius: ms(6) },
-  typeBadgeText: { fontFamily: 'Poppins-SemiBold', fontSize: ms(10), color: theme.primary, letterSpacing: 0.5 },
-  scheduledText: { fontFamily: 'Poppins-Medium', fontSize: ms(12), color: theme.subtext },
-  cardTitle: { fontFamily: 'Poppins-SemiBold', fontSize: ms(16), color: theme.text, marginBottom: vs(8) },
-  cardClassInfo: { fontFamily: 'Poppins-Regular', fontSize: ms(12), color: theme.subtext, marginBottom: vs(12), lineHeight: ms(18) },
-  cardMetaGrid: { flexDirection: 'row', alignItems: 'center', gap: ms(16), marginBottom: vs(20) },
-  metaItem: { flexDirection: 'row', alignItems: 'center', gap: ms(6) },
-  metaItemText: { fontFamily: 'Poppins-Medium', fontSize: ms(12), color: theme.subtext },
-  
-  cardActions: { gap: ms(8) },
-  submittedOnlineBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#F0FDF4', paddingVertical: vs(12), borderRadius: ms(12), gap: ms(8) },
-  submittedOnlineText: { fontFamily: 'Poppins-SemiBold', fontSize: ms(13), color: '#16A34A' },
-  submittedOfflineBtn: { backgroundColor: theme.surfaceAlt, paddingVertical: vs(12), borderRadius: ms(12), alignItems: 'center' },
-  submittedOfflineText: { fontFamily: 'Poppins-Medium', fontSize: ms(13), color: theme.subtext },
-  viewSubmissionBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#EFF6FF', paddingVertical: vs(12), borderRadius: ms(12), gap: ms(8) },
-  viewSubmissionText: { fontFamily: 'Poppins-Medium', fontSize: ms(13), color: theme.primary },
+  alert: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: hs(7),
+    backgroundColor: '#F5F3FF',
+    borderWidth: 1,
+    borderColor: '#DDD6FE',
+    borderRadius: ms(12),
+    paddingHorizontal: hs(12),
+    paddingVertical: vs(9),
+    marginHorizontal: hs(16),
+    marginTop: vs(12),
+  },
+  alertText: { flex: 1, fontSize: ms(11.5), lineHeight: ms(16), color: '#6D28D9', fontWeight: '600' },
 
-  // Results Card
-  resultCard: { flexDirection: 'row', backgroundColor: theme.surface, borderRadius: ms(16), padding: ms(20), borderWidth: 1, borderColor: theme.border },
-  resultCardLeft: { flex: 1, paddingRight: hs(16) },
-  gradeBadge: { paddingHorizontal: hs(10), paddingVertical: vs(4), borderRadius: ms(6), marginLeft: hs(8) },
-  gradeBadgeText: { fontFamily: 'Poppins-SemiBold', fontSize: ms(10), letterSpacing: 0.5 },
-  progressSection: { marginTop: vs(16) },
-  progressText: { fontFamily: 'Poppins-Medium', fontSize: ms(12), color: theme.text, marginBottom: vs(8) },
-  progressBarBg: { height: vs(6), backgroundColor: theme.border, borderRadius: ms(3), overflow: 'hidden', marginBottom: vs(8) },
-  progressBarFill: { height: '100%', backgroundColor: '#6366F1', borderRadius: ms(3) },
-  progressMarks: { flexDirection: 'row', justifyContent: 'space-between' },
-  progressMarkText: { fontFamily: 'Poppins-Medium', fontSize: ms(9), color: theme.subtext },
-  
-  resultCardRight: { width: hs(80), alignItems: 'center', justifyContent: 'center', borderLeftWidth: 1, borderLeftColor: theme.surfaceAlt, paddingLeft: hs(16) },
-  scoreCircle: { width: hs(50), height: hs(50), borderRadius: hs(25), backgroundColor: '#6366F1', justifyContent: 'center', alignItems: 'center', marginBottom: vs(12) },
-  scoreCircleText: { fontFamily: 'Poppins-Bold', fontSize: ms(16), color: theme.surface },
-  viewResultBtn: { flexDirection: 'row', alignItems: 'center', gap: ms(4) },
-  viewResultBtnText: { fontFamily: 'Poppins-Medium', fontSize: ms(13), color: theme.primary },
+  filterRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: hs(7),
+    paddingHorizontal: hs(16),
+    marginTop: vs(13),
+  },
+  chip: {
+    paddingHorizontal: hs(12),
+    paddingVertical: vs(6),
+    borderRadius: ms(16),
+    borderWidth: 1,
+    borderColor: theme.border,
+    backgroundColor: theme.surface,
+  },
+  chipOn: { backgroundColor: theme.primary, borderColor: theme.primary },
+  chipText: { fontSize: ms(11.5), lineHeight: ms(16), fontWeight: '600', color: theme.subtext },
+  chipTextOn: { color: '#FFF' },
 
-  emptyStateContainer: { padding: ms(40), alignItems: 'center' },
-  emptyTitle: { fontFamily: 'Poppins-SemiBold', fontSize: ms(16), color: theme.subtext },
+  subjectBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: hs(6),
+    marginHorizontal: hs(16),
+    marginTop: vs(10),
+    paddingHorizontal: hs(12),
+    paddingVertical: vs(9),
+    borderRadius: ms(10),
+    borderWidth: 1,
+    borderColor: theme.border,
+    backgroundColor: theme.surface,
+  },
+  subjectText: { flex: 1, fontSize: ms(12.5), lineHeight: ms(18), fontWeight: '600', color: theme.text },
 
-  // Modal Styles
-  dropdownOverlay: { flex: 1, backgroundColor: 'rgba(15, 23, 42, 0.4)', justifyContent: 'center', alignItems: 'center', padding: ms(20) },
-  dropdownContent: { backgroundColor: theme.surface, borderRadius: ms(16), padding: ms(16), width: '80%', maxHeight: '60%', shadowColor: '#000', shadowOffset: {width: 0, height: vs(10)}, shadowOpacity: 0.1, shadowRadius: ms(20), elevation: 5 },
-  dropdownTitle: { fontFamily: 'Poppins-SemiBold', fontSize: ms(16), color: theme.text, marginBottom: vs(12), textAlign: 'center' },
-  dropdownItem: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: vs(12), paddingHorizontal: hs(12), borderRadius: ms(8) },
-  dropdownItemActive: { backgroundColor: '#EFF6FF' },
-  dropdownItemText: { fontFamily: 'Poppins-Medium', fontSize: ms(13), color: theme.subtext },
-  dropdownItemTextActive: { color: theme.primary, fontFamily: 'Poppins-SemiBold' },
+  content: { padding: hs(16), paddingBottom: vs(100) },
+  empty: { textAlign: 'center', color: theme.subtext, marginTop: vs(40), fontSize: ms(13) },
+
+  card: {
+    flexDirection: 'row',
+    backgroundColor: theme.surface,
+    borderRadius: ms(16),
+    borderWidth: 1,
+    borderColor: theme.border,
+    marginBottom: vs(12),
+    overflow: 'hidden',
+  },
+  rail: { width: hs(4) },
+  cardBody: { flex: 1, padding: ms(13) },
+  cardTop: { flexDirection: 'row', alignItems: 'center', gap: hs(8), marginBottom: vs(7) },
+  typeChip: {
+    backgroundColor: theme.background,
+    borderRadius: ms(8),
+    paddingHorizontal: hs(8),
+    paddingVertical: vs(3),
+  },
+  typeChipText: {
+    fontSize: ms(10),
+    lineHeight: ms(14),
+    fontWeight: '700',
+    letterSpacing: 0.4,
+    color: theme.subtext,
+    textTransform: 'uppercase',
+  },
+  pill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: hs(4),
+    paddingHorizontal: hs(8),
+    paddingVertical: vs(3),
+    borderRadius: ms(11),
+    marginLeft: 'auto',
+  },
+  pillText: { fontSize: ms(10), lineHeight: ms(14), fontWeight: '700' },
+
+  name: { fontSize: ms(15.5), lineHeight: ms(21), fontWeight: '700', color: theme.text },
+  subjectLine: { fontSize: ms(12), lineHeight: ms(17), color: theme.primary, fontWeight: '600', marginTop: vs(2) },
+
+  metaRow: { flexDirection: 'row', flexWrap: 'wrap', gap: hs(12), marginTop: vs(8) },
+  meta: { flexDirection: 'row', alignItems: 'center', gap: hs(5) },
+  metaText: { fontSize: ms(11.5), lineHeight: ms(16), color: theme.subtext },
+
+  scoreBox: { marginTop: vs(11) },
+  scoreLeft: { flexDirection: 'row', alignItems: 'baseline', gap: hs(8) },
+  scorePct: { fontSize: ms(20), lineHeight: ms(26), fontWeight: '700' },
+  scoreRaw: { fontSize: ms(12), lineHeight: ms(17), color: theme.subtext, fontWeight: '600' },
+  barTrack: {
+    height: vs(6),
+    borderRadius: ms(3),
+    backgroundColor: theme.background,
+    marginTop: vs(6),
+    overflow: 'hidden',
+  },
+  barFill: { height: '100%', borderRadius: ms(3) },
+
+  provisional: {
+    fontSize: ms(11),
+    lineHeight: ms(16),
+    color: theme.subtext,
+    fontStyle: 'italic',
+    marginTop: vs(7),
+  },
+
+  cta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: hs(7),
+    backgroundColor: theme.primary,
+    borderRadius: ms(11),
+    paddingVertical: vs(10),
+    marginTop: vs(12),
+  },
+  ctaResume: { backgroundColor: '#7C3AED' },
+  closedNote: {
+    fontSize: ms(11.5),
+    lineHeight: ms(16),
+    color: theme.subtext,
+    marginTop: vs(9),
+  },
+  ctaText: { color: '#FFF', fontSize: ms(13.5), lineHeight: ms(19), fontWeight: '700' },
+
+  backdrop: { flex: 1, backgroundColor: 'rgba(15,23,42,0.45)', justifyContent: 'flex-end' },
+  sheet: {
+    backgroundColor: theme.surface,
+    borderTopLeftRadius: ms(20),
+    borderTopRightRadius: ms(20),
+    paddingBottom: vs(24),
+    maxHeight: '70%',
+  },
+  sheetHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: hs(20),
+    paddingTop: vs(16),
+    paddingBottom: vs(12),
+    borderBottomWidth: 1,
+    borderBottomColor: theme.border,
+  },
+  sheetTitle: { fontSize: ms(16), fontWeight: '700', color: theme.text },
+  sheetRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: hs(20),
+    paddingVertical: vs(14),
+    borderBottomWidth: 1,
+    borderBottomColor: theme.border,
+  },
+  sheetRowText: { flex: 1, fontSize: ms(14), lineHeight: ms(20), color: theme.text },
+  sheetRowTextOn: { color: theme.primary, fontWeight: '700' },
 });

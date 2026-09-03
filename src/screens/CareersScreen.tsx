@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { ScrollView, StyleSheet, Text, View, TouchableOpacity, ActivityIndicator, Platform, StatusBar } from 'react-native';
+import { ScrollView, StyleSheet, Text, View, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { hs, vs, ms } from '../utils/responsive';
 import { Compass, GraduationCap, Target, Brain, Sparkles, CheckCircle, Clock, FileText, ChevronRight, ArrowLeft } from 'lucide-react-native';
 import { schoolApi } from '../utils/api';
@@ -35,17 +35,17 @@ export function CareersScreen({ onNavigate }: any) {
   const hasCompletedQuiz = data?.quizCompleted === true || data?.status === 'completed' || data?.type !== undefined;
 
   if (loading) {
-    return <View style={styles.container}><ActivityIndicator color={theme.primary} style={{marginTop: 50}} /></View>;
+    return <View style={styles.container}><ActivityIndicator color={theme.primary} style={{marginTop: vs(50)}} /></View>;
   }
 
   if (isAiDisabled) {
     return (
-      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center', padding: 20 }]}>
-        <Compass size={48} color={theme.subtext} style={{ marginBottom: 16 }} />
-        <Text style={{ textAlign: 'center', color: theme.text, fontSize: 18, fontFamily: 'Poppins-SemiBold', marginBottom: 8 }}>
+      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center', padding: ms(20) }]}>
+        <Compass size={ms(48)} color={theme.subtext} style={{ marginBottom: vs(16) }} />
+        <Text style={{ textAlign: 'center', color: theme.text, fontSize: ms(18), fontFamily: 'Poppins-SemiBold', marginBottom: vs(8) }}>
           Feature Disabled
         </Text>
-        <Text style={{ textAlign: 'center', color: theme.subtext, fontSize: 14, fontFamily: 'Poppins-Regular' }}>
+        <Text style={{ textAlign: 'center', color: theme.subtext, fontSize: ms(14), fontFamily: 'Poppins-Regular' }}>
           The AI Career Guidance feature is currently disabled for your institution.
         </Text>
       </View>
@@ -58,9 +58,9 @@ export function CareersScreen({ onNavigate }: any) {
       <View style={styles.header}>
         <View style={styles.headerTitleRow}>
           <TouchableOpacity onPress={() => onNavigate && onNavigate('dashboard')} style={{ marginRight: hs(12) }}>
-            <ArrowLeft size={24} color={theme.text} />
+            <ArrowLeft size={ms(24)} color={theme.text} />
           </TouchableOpacity>
-          <Compass size={20} color={theme.primary} style={{ marginRight: 8 }} />
+          <Compass size={ms(20)} color={theme.primary} style={{ marginRight: hs(8) }} />
           <Text style={styles.pageTitle}>Career Guidance</Text>
         </View>
         <Text style={styles.pageSub}>Discover your strengths and ideal career path</Text>
@@ -207,7 +207,7 @@ const getStyles = (theme: any) => StyleSheet.create({
   
   header: { 
     backgroundColor: theme.surface, 
-    paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight || 24) + 10 : 60, 
+    paddingTop: vs(12), 
     paddingHorizontal: hs(20), 
     paddingBottom: vs(20),
     borderBottomWidth: 1,
@@ -248,7 +248,7 @@ const getStyles = (theme: any) => StyleSheet.create({
   academicSubject: { fontFamily: 'Poppins-Medium', fontSize: ms(11), color: theme.subtext, marginBottom: vs(8) },
   academicScore: { fontFamily: 'Poppins-SemiBold', fontSize: ms(20), color: theme.text, marginBottom: vs(8) },
   gradeBadge: { position: 'absolute', top: ms(12), right: ms(12), paddingHorizontal: hs(6), paddingVertical: vs(2), borderRadius: ms(4) },
-  gradeBadgeText: { fontFamily: 'Poppins-Bold', fontSize: ms(10) },
+  gradeBadgeText: { fontFamily: 'Poppins-Medium', fontSize: ms(10) },
   progressBarBg: { height: vs(4), backgroundColor: theme.surfaceAlt, borderRadius: ms(2), overflow: 'hidden' },
   progressBarFill: { height: '100%', borderRadius: ms(2) },
   needsWorkText: { fontFamily: 'Poppins-Medium', fontSize: ms(12), color: '#D97706' },

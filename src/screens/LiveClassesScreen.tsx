@@ -5,7 +5,7 @@ import { Video, PlayCircle, ChevronLeft, VideoIcon, Radio } from 'lucide-react-n
 import { schoolApi } from '../utils/api';
 import { useAppTheme } from '../context/ThemeContext';
 
-export function LiveClassesScreen({ onNavigate }: any) {
+export function LiveClassesScreen({ onNavigate, embedded = false }: any) {
   const { theme, isDarkMode, toggleTheme } = useAppTheme();
   const styles = getStyles(theme);
 
@@ -33,15 +33,21 @@ export function LiveClassesScreen({ onNavigate }: any) {
     fetchData();
   }, []);
 
+  // Inside the Videos tab the parent supplies the frame and title, so the
+  // screen drops its own chrome rather than nesting a second header.
+  const Frame: any = embedded ? View : SafeAreaView;
+
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity style={styles.backBtn} onPress={() => onNavigate('dashboard')}>
-          <ChevronLeft size={ms(24)} color={theme.text} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Live Classes</Text>
-        <View style={{ width: ms(32) }} />
-      </View>
+    <Frame style={styles.container}>
+      {!embedded && (
+        <View style={styles.header}>
+          <TouchableOpacity style={styles.backBtn} onPress={() => onNavigate('dashboard')}>
+            <ChevronLeft size={ms(24)} color={theme.text} />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Live Classes</Text>
+          <View style={{ width: ms(32) }} />
+        </View>
+      )}
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} style={{ backgroundColor: theme.background }}>
         {loading ? (
@@ -69,7 +75,7 @@ export function LiveClassesScreen({ onNavigate }: any) {
                     <View style={styles.liveCardBottom}>
                       <Text style={styles.liveCardTeacher}>{item.teacherName || 'Instructor'}</Text>
                       <Text style={styles.liveCardSubject}>{item.title || item.subjectName}</Text>
-                      <TouchableOpacity style={[styles.joinBtn, {backgroundColor: '#EF4444'}]} onPress={() => onNavigate('liveClassRoom')}>
+                      <TouchableOpacity style={[styles.joinBtn, {backgroundColor: '#EF4444'}]} onPress={() => onNavigate('liveClassRoom', { id: item.id || item.lectureId, title: item.title || item.subjectName })}>
                         <Text style={styles.joinBtnText}>Join Now</Text>
                       </TouchableOpacity>
                     </View>
@@ -113,7 +119,7 @@ export function LiveClassesScreen({ onNavigate }: any) {
           </>
         )}
       </ScrollView>
-    </SafeAreaView>
+    </Frame>
   );
 }
 
@@ -137,7 +143,7 @@ const getStyles = (theme: any) => StyleSheet.create({
     padding: ms(4),
   },
   headerTitle: {
-    fontFamily: 'Poppins-Bold',
+    fontFamily: 'Poppins-Medium',
     fontSize: ms(18),
     color: theme.text,
   },
@@ -157,7 +163,7 @@ const getStyles = (theme: any) => StyleSheet.create({
     marginRight: hs(8),
   },
   liveSectionHeaderText: {
-    fontFamily: 'Poppins-Bold',
+    fontFamily: 'Poppins-Medium',
     fontSize: ms(12),
     color: theme.subtext,
     letterSpacing: 1,
@@ -171,9 +177,9 @@ const getStyles = (theme: any) => StyleSheet.create({
     borderColor: theme.border,
     elevation: 2,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
+    shadowOffset: { width: 0, height: vs(2) },
     shadowOpacity: 0.05,
-    shadowRadius: 4,
+    shadowRadius: ms(4),
   },
   liveCardTop: {
     backgroundColor: '#EF4444',
@@ -209,7 +215,7 @@ const getStyles = (theme: any) => StyleSheet.create({
     fontSize: ms(12),
   },
   liveCardSubject: {
-    fontFamily: 'Poppins-Bold',
+    fontFamily: 'Poppins-Medium',
     color: theme.text,
     fontSize: ms(16),
     marginTop: vs(4),

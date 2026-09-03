@@ -1,11 +1,58 @@
+import { saveSession, loadSession, clearSession, Session } from './session';
+
 const BASE_URL = 'https://api.eddva.in/api/v1';
 const AI_BASE_URL = BASE_URL;
 
 let currentToken = '';
+// The API is multi-tenant: every call must carry the caller's institute as a
+// header, not just the bearer token. Kept in step with currentToken.
+let currentInstituteId = '';
 
-export const setAuthToken = (token: string) => {
+// Called when the server rejects our token, so the app can send the user back
+// to the login screen instead of leaving them on a screen that cannot load.
+let onUnauthorized: (() => void) | null = null;
+
+export const setUnauthorizedHandler = (handler: (() => void) | null) => {
+  onUnauthorized = handler;
+};
+
+/**
+ * Set the token for this session and, by default, persist it so a reload or
+ * app restart keeps the user logged in. Previously the token lived only in
+ * this module variable, so every reload silently signed the user out.
+ *
+ * `persist: false` (the login screen's "Remember me" left unchecked) still
+ * sets the in-memory token -- the current app session works normally -- it
+ * just never reaches storage, so a restart lands back on the login screen.
+ */
+export const setAuthToken = (
+  token: string,
+  role: Session['role'] = 'student',
+  instituteId = '',
+  persist = true,
+) => {
   currentToken = token;
+  currentInstituteId = instituteId;
+  if (persist) void saveSession({ token, role, instituteId });
+};
 
+/**
+ * Rehydrate the in-memory token from storage. Call once on app start, before
+ * rendering anything that makes an authenticated request.
+ */
+export const restoreAuthToken = async (): Promise<Session | null> => {
+  const session = await loadSession();
+  if (session) {
+    currentToken = session.token;
+    currentInstituteId = session.instituteId ?? '';
+  }
+  return session;
+};
+
+export const clearAuthToken = async () => {
+  currentToken = '';
+  currentInstituteId = '';
+  await clearSession();
 };
 
 // Helper to get auth token
@@ -23,6 +70,7 @@ export const fetchApi = async (endpoint: string, options: RequestInit = {}, isAi
   const headers = {
     'Content-Type': 'application/json',
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    ...(currentInstituteId ? { 'X-Institute-Id': currentInstituteId } : {}),
     ...options.headers,
   };
 
@@ -34,10 +82,30 @@ export const fetchApi = async (endpoint: string, options: RequestInit = {}, isAi
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
+      // A rejected token is a dead session: drop it so the app stops retrying
+      // with credentials the server has already refused.
+      if (response.status === 401 && currentToken) {
+        await clearAuthToken();
+        onUnauthorized?.();
+      }
       throw new Error(errorData.message || 'API Error');
     }
 
-    return await response.json();
+    const json = await response.json();
+    // The API wraps every payload as { success:true, data:<payload> }. Unwrap
+    // once here so screens read the payload directly instead of each one
+    // re-implementing the same "is it wrapped?" ladder. Responses that are not
+    // enveloped are passed through untouched.
+    if (
+      json &&
+      typeof json === 'object' &&
+      !Array.isArray(json) &&
+      'success' in json &&
+      'data' in json
+    ) {
+      return (json as any).data;
+    }
+    return json;
   } catch (error) {
     throw error;
   }
@@ -46,8 +114,14 @@ export const fetchApi = async (endpoint: string, options: RequestInit = {}, isAi
 export const schoolApi = {
   // --- AUTH ---
   login: (data: any) => fetchApi('/school/auth/login', { method: 'POST', body: JSON.stringify(data) }),
+  // The account's real role, confirmed live: e.g. "STUDENT" or a comma-joined
+  // "TEACHER,INSTITUTE_ADMIN". Used as a fallback when a login response's own
+  // user object doesn't carry a role.
+  getMe: () => fetchApi('/school/auth/me'),
   register: (data: any) => fetchApi('/school/auth/register', { method: 'POST', body: JSON.stringify(data) }),
-  logout: () => { currentToken = ''; return Promise.resolve(); },
+  logout: () => clearAuthToken(),
+  registerDeviceToken: (token: string, platform: 'android' | 'ios') =>
+    fetchApi('/school/students/device-token', { method: 'POST', body: JSON.stringify({ token, platform }) }),
 
   // --- CORE SYSTEM ---
   getProfile: () => fetchApi('/school/students/dashboard'),
@@ -82,6 +156,8 @@ export const schoolApi = {
   // --- ASSIGNMENTS & ASSESSMENTS (Shared) ---
   getAssignments: () => fetchApi('/school/assignments'),
   getAssessments: () => fetchApi('/school/assessments'),
+  getAssessmentDetails: (id: string) => fetchApi(`/school/assessments/${id}`),
+  getAssessmentResults: (id: string) => fetchApi(`/school/assessments/${id}/results`),
   startAssessmentAttempt: (id: string, data: any = {}) => fetchApi(`/school/assessments/${id}/start`, { method: 'POST', body: JSON.stringify(data) }),
   saveAssessmentAnswer: (id: string, data: any) => fetchApi(`/school/assessments/${id}/answer`, { method: 'POST', body: JSON.stringify(data) }),
   submitAssessment: (id: string, data: any = {}) => fetchApi(`/school/assessments/${id}/submit`, { method: 'POST', body: JSON.stringify(data) }),
@@ -89,6 +165,19 @@ export const schoolApi = {
   
   // --- LEARN TAB (Shared) ---
   getRecordings: () => fetchApi('/school/classes/recordings'),
+  // Call right before playback: the list's video_url is not always playable.
+  getRecordingPlayUrl: (id: string) => fetchApi(`/school/classes/recordings/${id}/play-url`),
+  getRecordingNotes: (id: string) => fetchApi(`/school/classes/recordings/${id}/notes-images-data`),
+  // Personal notes are scoped per recording: the same endpoint returns a
+  // different string per recordingId, and the response is { success, notes }
+  // with `notes` at the top level rather than inside `data`.
+  getStudentNotes: (recordingId: string) =>
+    fetchApi(`/school/classes/student-notes?recordingId=${encodeURIComponent(recordingId)}`),
+  saveStudentNote: (recordingId: string, notes: string) =>
+    fetchApi('/school/classes/student-notes', {
+      method: 'POST',
+      body: JSON.stringify({ recordingId, notes }),
+    }),
   getRecordingProgress: (id: string) => fetchApi(`/school/classes/recordings/${id}/progress`),
   upsertRecordingProgress: (id: string, data: any) => fetchApi(`/school/classes/recordings/${id}/progress`, { method: 'POST', body: JSON.stringify(data) }),
   submitVideoQuizResponse: (id: string, data: any) => fetchApi(`/school/classes/recordings/${id}/quiz-response`, { method: 'POST', body: JSON.stringify(data) }),
@@ -107,7 +196,10 @@ export const schoolApi = {
   // --- NOTIFICATIONS ---
   getNotifications: () => fetchApi('/school/notifications'),
   getUnreadNotificationsCount: () => fetchApi('/school/notifications/unread-count'),
-  markNotificationRead: (id: string) => fetchApi(`/school/notifications/${id}/read`, { method: 'PATCH' }),
+  markNotificationRead: (id: string) => fetchApi(`/school/notifications/${id}/read`, { method: 'PUT' }),
+  markAllNotificationsRead: () => fetchApi('/school/notifications/read-all', { method: 'PUT' }),
+  getNotificationPreferences: () => fetchApi('/school/notifications/preferences'),
+  updateNotificationPreferences: (data: any) => fetchApi('/school/notifications/preferences', { method: 'PUT', body: JSON.stringify(data) }),
 
   // --- GAMIFICATION & ARCADE ---
   // Quiz Rush
@@ -138,6 +230,7 @@ export const schoolApi = {
   getWordMasterLeaderboard: () => fetchApi('/school/gamification/word-master/leaderboard'),
 
   // --- DOUBTS ---
+  getDoubtContext: () => fetchApi('/school/doubts/context'),
   getDoubtDetails: (id: string) => fetchApi(`/school/doubts/${id}`),
   getDoubtStats: () => fetchApi('/school/doubts/stats'),
   createDoubt: (data: any) => fetchApi('/school/doubts', { method: 'POST', body: JSON.stringify(data) }),
@@ -150,11 +243,37 @@ export const schoolApi = {
   getAiDoubtSuggestion: (id: string) => fetchApi(`/school/doubts/${id}/ai-suggest`, { method: 'POST' }),
 
   // --- CLASSES ---
+  // NOTE: every /school/classes/* route below answers 404 on the live API --
+  // the real class list lives at /school/academic/classes (see getAcademicClasses).
+  // They are kept only because two screens still reference them; both surface
+  // an error rather than data until they are migrated.
   getClasses: () => fetchApi('/school/classes'),
   getClassDetails: (id: string) => fetchApi(`/school/classes/${id}`),
   getClassSubjects: (id: string) => fetchApi(`/school/classes/${id}/subjects`),
   getClassTeachers: (id: string) => fetchApi(`/school/classes/${id}/teachers`),
   getClassStudents: (id: string) => fetchApi(`/school/classes/${id}/students`),
+
+  // --- COURSE CONTENT (curriculum tree) ---
+  // Classes with their sections nested, plus totalStudents and classTeacherName
+  // on both the class and each section -- the source for the "Class Teacher" badge.
+  getAcademicClasses: () => fetchApi('/school/academic/classes'),
+  getAcademicSections: () => fetchApi('/school/academic/sections'),
+  // Subjects taught in one class-section, each carrying a `chapters` array.
+  // That array is denormalised: it holds the chapters of EVERY subject sharing
+  // the same name across classes, so callers must keep only the entries whose
+  // chapter.subjectId matches the subject's own id (verified live: Class 10
+  // Science returns 68 chapters, of which 13 are actually Class 10's).
+  getSubjectsForSection: (classId: string, sectionId: string) =>
+    fetchApi(`/school/subjects?classId=${encodeURIComponent(classId)}&sectionId=${encodeURIComponent(sectionId)}`),
+  getChapterTopics: (chapterId: string) =>
+    fetchApi(`/school/topics?chapterId=${encodeURIComponent(chapterId)}`),
+  // Materials filtered server-side. chapterId returns only the chapter-level
+  // items (those with no topic); topicId returns that topic's own items.
+  getChapterMaterials: (chapterId: string) =>
+    fetchApi(`/school/materials?chapterId=${encodeURIComponent(chapterId)}`),
+  getTopicMaterials: (topicId: string) =>
+    fetchApi(`/school/materials?topicId=${encodeURIComponent(topicId)}`),
+  deleteMaterial: (id: string) => fetchApi(`/school/materials/${id}`, { method: 'DELETE' }),
 
   // --- SUBJECTS & TOPICS ---
   getSubjects: () => fetchApi('/school/subjects'),
@@ -287,6 +406,37 @@ export const schoolApi = {
     uploadMaterial: (data: any) => fetchApi('/school/materials', { method: 'POST', body: JSON.stringify(data) }),
     generatePPT: (data: any) => fetchApi('/school/ppt/generate', { method: 'POST', body: JSON.stringify(data) }),
     generateAiNotes: (data: any) => fetchApi('/school/materials/ai-generate', { method: 'POST', body: JSON.stringify(data) }),
+    /**
+     * The AI content generator behind Course Content. Takes
+     * `{ chapterId | topicId, contentType, language }` and answers
+     * `{ content, contentType, topicName, source }`.
+     *
+     * Two behaviours worth knowing, both confirmed against the live API:
+     *  - it only GENERATES; nothing is written to the library, so the caller
+     *    has to POST the result through createMaterial to keep it.
+     *  - the type field must be `contentType`. Sending `materialType` or
+     *    `type` is silently ignored and the server falls back to plain notes.
+     */
+    aiGenerateMaterial: (data: {
+      chapterId?: string;
+      topicId?: string;
+      contentType: string;
+      language?: string;
+    }) => fetchApi('/school/materials/ai-generate', { method: 'POST', body: JSON.stringify(data) }),
+
+    // Saves a material. `description` carries the Markdown body for generated
+    // content, which is where the app reads it back from -- AI material has no
+    // file behind it, so fileUrl stays empty.
+    createMaterial: (data: {
+      title: string;
+      description: string;
+      fileType: string;
+      chapterId: string;
+      topicId?: string;
+      subjectId: string;
+      classId: string;
+      sectionId?: string;
+    }) => fetchApi('/school/materials', { method: 'POST', body: JSON.stringify(data) }),
 
     // 9. Live Classes
     startLiveLecture: (data: any) => fetchApi('/school/live/lectures', { method: 'POST', body: JSON.stringify(data) }),

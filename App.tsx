@@ -1,10 +1,12 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, TouchableOpacity, Text, StyleSheet, Platform } from 'react-native';
+import { hs, vs, ms } from './src/utils/responsive';
 import { PaperProvider, MD3LightTheme } from 'react-native-paper';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
-import { Home, BookOpen, MessageSquare, Gamepad2, Briefcase, Bot } from 'lucide-react-native';
+import { Home, BookOpen, FileText, Clock, Gamepad2, Briefcase, Bot, MonitorPlay } from 'lucide-react-native';
 
 import { ThemeProvider, useAppTheme } from './src/context/ThemeContext';
+import { restoreAuthToken, setUnauthorizedHandler } from './src/utils/api';
 import { SplashScreen } from './src/screens/SplashScreen';
 import { OnboardingScreen } from './src/screens/OnboardingScreen';
 import { LoginScreen } from './src/screens/LoginScreen';
@@ -13,8 +15,11 @@ import { TimetableScreen } from './src/screens/TimetableScreen';
 import { AssignmentsScreen } from './src/screens/AssignmentsScreen';
 import { ProfileScreen } from './src/screens/ProfileScreen';
 import { MenuScreen } from './src/screens/MenuScreen';
+import { VideosScreen } from './src/screens/VideosScreen';
+import { TodayScheduleScreen } from './src/screens/TodayScheduleScreen';
 import { LiveClassesScreen } from './src/screens/LiveClassesScreen';
 import { StudyMaterialsScreen } from './src/screens/StudyMaterialsScreen';
+import { MaterialViewerScreen } from './src/screens/MaterialViewerScreen';
 import { AttendanceScreen } from './src/screens/AttendanceScreen';
 import { CalendarScreen } from './src/screens/CalendarScreen';
 import { AssessmentsScreen } from './src/screens/AssessmentsScreen';
@@ -58,8 +63,11 @@ type Screen =
   | 'assignments'
   | 'profile'
   | 'menu'
+  | 'videos'
+  | 'todaySchedule'
   | 'liveClasses'
   | 'studyMaterials'
+  | 'materialViewer'
   | 'attendance'
   | 'calendar'
   | 'assessments'
@@ -92,7 +100,57 @@ type Screen =
 
 function MainApp() {
   const [screen, setScreen] = useState<Screen>('splash');
+  // Params that travel with a navigation (assessmentId, topicId, material url...).
+  // Screens are mounted from a switch rather than a router, so without this the
+  // second argument of onNavigate() was silently dropped and detail screens
+  // had nothing to fetch with.
+  const [routeParams, setRouteParams] = useState<any>(null);
+  // Who is signed in. This has to be tracked explicitly rather than inferred
+  // from the current screen: screens like Notifications and Profile are shared
+  // by both roles, so a name-based guess turns a teacher into a student the
+  // moment they open one.
+  const [role, setRole] = useState<'student' | 'teacher' | null>(null);
   const { theme } = useAppTheme();
+
+  const isTeacher = role === 'teacher';
+  const homeScreen: Screen = isTeacher ? 'teacherDashboard' : 'dashboard';
+
+  const navigate = (tab: any, params?: any) => {
+    // 'dashboard' is the student home. The shared screens hard-code it as their
+    // Back target, so for a teacher it is redirected to their own home instead
+    // of dropping them into the student panel.
+    const target = tab === 'dashboard' ? homeScreen : tab;
+    if (target === 'login') setRole(null);
+    setScreen(target);
+    setRouteParams(params ?? null);
+  };
+
+  // Restore a persisted session on start. Until this resolves we stay on the
+  // splash screen, otherwise a logged-in user would see a flash of the login
+  // screen before being redirected.
+  useEffect(() => {
+    let cancelled = false;
+
+    restoreAuthToken()
+      .then(session => {
+        if (cancelled) return;
+        if (session) {
+          setRole(session.role === 'teacher' ? 'teacher' : 'student');
+          setScreen(session.role === 'teacher' ? 'teacherDashboard' : 'dashboard');
+        }
+      })
+      .catch(() => {
+        /* no usable session; fall through to the normal splash -> login flow */
+      });
+
+    // A token the server rejects means the session is over: go back to login.
+    setUnauthorizedHandler(() => { setRole(null); setScreen('login'); });
+
+    return () => {
+      cancelled = true;
+      setUnauthorizedHandler(null);
+    };
+  }, []);
 
   const paperTheme = {
     ...MD3LightTheme,
@@ -108,147 +166,197 @@ function MainApp() {
   const renderScreen = () => {
     switch (screen) {
       case 'splash':
-        return <SplashScreen onFinish={() => setScreen('onboarding')} />;
+        return <SplashScreen onFinish={() => navigate('onboarding')} />;
       case 'onboarding':
-        return <OnboardingScreen onContinue={() => setScreen('login')} />;
+        return <OnboardingScreen onContinue={() => navigate('login')} />;
       case 'login':
-        return <LoginScreen onLogin={(role: string) => setScreen(role === 'teacher' ? 'teacherDashboard' : 'dashboard')} />;
+        return (
+          <LoginScreen
+            onLogin={(loggedInRole: string) => {
+              // setScreen directly rather than navigate(): the role state set
+              // here is not visible to navigate() until the next render, so its
+              // student-home redirect would not yet know this is a teacher.
+              const next = loggedInRole === 'teacher' ? 'teacher' : 'student';
+              setRole(next);
+              setScreen(next === 'teacher' ? 'teacherDashboard' : 'dashboard');
+              setRouteParams(null);
+            }}
+          />
+        );
       case 'dashboard':
-        return <DashboardScreen onNavigate={(tab: any) => setScreen(tab)} />;
+        return <DashboardScreen onNavigate={navigate} />;
       case 'menu':
-        return <MenuScreen onNavigate={(tab: any) => setScreen(tab)} onClose={() => setScreen('dashboard')} />;
+        return <MenuScreen onNavigate={navigate} onClose={() => navigate('dashboard')} />;
+      case 'videos':
+        return <VideosScreen onNavigate={navigate} routeParams={routeParams} />;
+      case 'todaySchedule':
+        return <TodayScheduleScreen onNavigate={navigate} />;
       case 'liveClasses':
-        return <LiveClassesScreen onNavigate={(tab: any) => setScreen(tab)} />;
+        return <LiveClassesScreen onNavigate={navigate} />;
       case 'studyMaterials':
-        return <StudyMaterialsScreen onNavigate={(tab: any) => setScreen(tab)} />;
+        return <StudyMaterialsScreen onNavigate={navigate} />;
+      case 'materialViewer':
+        return <MaterialViewerScreen onNavigate={navigate} routeParams={routeParams} />;
       case 'attendance':
-        return <AttendanceScreen onNavigate={(tab: any) => setScreen(tab)} />;
+        return <AttendanceScreen onNavigate={navigate} />;
       case 'calendar':
-        return <CalendarScreen onNavigate={(tab: any) => setScreen(tab)} />;
+        return <CalendarScreen onNavigate={navigate} />;
       case 'doubt':
-        return <DoubtScreen onNavigate={(tab: any) => setScreen(tab)} />;
+        return <DoubtScreen onNavigate={navigate} />;
       case 'askDoubt':
-        return <AskDoubtScreen onNavigate={(tab: any) => setScreen(tab)} />;
+        return <AskDoubtScreen onNavigate={navigate} />;
       case 'assessments':
-        return <AssessmentsScreen onNavigate={(tab: any) => setScreen(tab)} />;
+        return <AssessmentsScreen onNavigate={navigate} />;
       case 'discover':
-        return <DiscoverScreen onNavigate={(tab: any) => setScreen(tab)} />;
+        return <DiscoverScreen onNavigate={navigate} />;
       case 'timetable':
-        return <TimetableScreen onNavigate={(tab: any) => setScreen(tab)} />;
+        return <TimetableScreen onNavigate={navigate} />;
       case 'assignments':
-        return <AssignmentsScreen onNavigate={(tab: any) => setScreen(tab)} />;
+        return <AssignmentsScreen onNavigate={navigate} />;
       case 'profile':
-        return <ProfileScreen onNavigate={(tab: any) => setScreen(tab)} />;
+        return <ProfileScreen onNavigate={navigate} />;
       case 'notifications':
-        return <NotificationsScreen onNavigate={(tab: any) => setScreen(tab)} />;
+        return <NotificationsScreen onNavigate={navigate} />;
       case 'studyPlan':
-        return <StudyPlanScreen onNavigate={(tab: any) => setScreen(tab)} />;
+        return <StudyPlanScreen onNavigate={navigate} />;
       case 'analytics':
-        return <AnalyticsScreen onNavigate={(tab: any) => setScreen(tab)} />;
+        return <AnalyticsScreen onNavigate={navigate} />;
       case 'pyq':
-        return <PYQScreen onNavigate={(tab: any) => setScreen(tab)} />;
+        return <PYQScreen onNavigate={navigate} />;
       case 'careers':
-        return <CareersScreen onNavigate={(tab: any) => setScreen(tab)} />;
+        return <CareersScreen onNavigate={navigate} />;
       case 'recordedClasses':
-        return <RecordedClassesScreen onNavigate={(tab: any) => setScreen(tab)} />;
+        return <RecordedClassesScreen onNavigate={navigate} />;
       case 'gamification':
-        return <GamificationScreen onNavigate={(tab: any) => setScreen(tab)} />;
+        return <GamificationScreen onNavigate={navigate} />;
       case 'aiStudy':
-        return <AiStudyScreen onNavigate={(tab: any) => setScreen(tab)} />;
+        return <AiStudyScreen onNavigate={navigate} routeParams={routeParams} />;
       case 'aiQuiz':
-        return <AiQuizScreen onNavigate={(tab: any) => setScreen(tab)} />;
+        return <AiQuizScreen onNavigate={navigate} routeParams={routeParams} />;
       case 'careerQuiz':
-        return <CareerQuizScreen onNavigate={(tab: any) => setScreen(tab)} />;
+        return <CareerQuizScreen onNavigate={navigate} />;
       case 'exam':
-        return <ExamScreen onNavigate={(tab: any) => setScreen(tab)} />;
+        return <ExamScreen onNavigate={navigate} routeParams={routeParams} />;
       case 'pdfViewer':
-        return <PdfViewerScreen url="https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf" onBack={() => setScreen('dashboard')} />;
+        return <PdfViewerScreen onNavigate={navigate} routeParams={routeParams} />;
       case 'liveClassRoom':
-        return <LiveClassRoomScreen onNavigate={(tab: any) => setScreen(tab)} routeParams={{ id: 'c69f9e30-23fa-6125-df14-1ae7e90d614e' }} />;
+        return <LiveClassRoomScreen onNavigate={navigate} routeParams={routeParams} />;
       case 'teacherDashboard':
-        return <TeacherDashboardScreen onNavigate={(tab: any) => setScreen(tab)} />;
+        return <TeacherDashboardScreen onNavigate={navigate} />;
       case 'teacherAssignments':
-        return <TeacherAssignmentsScreen onNavigate={(tab: any) => setScreen(tab)} />;
+        return <TeacherAssignmentsScreen onNavigate={navigate} />;
       case 'teacherAssessments':
-        return <TeacherAssessmentsScreen onNavigate={(tab: any) => setScreen(tab)} />;
+        return <TeacherAssessmentsScreen onNavigate={navigate} />;
       case 'teacherRecordings':
-        return <TeacherRecordingsScreen onNavigate={(tab: any) => setScreen(tab)} />;
+        return <TeacherRecordingsScreen onNavigate={navigate} />;
       case 'teacherClasses':
-        return <TeacherClassesScreen onNavigate={(tab: any) => setScreen(tab)} />;
+        return <TeacherClassesScreen onNavigate={navigate} />;
       case 'teacherAttendance':
-        return <TeacherAttendanceScreen onNavigate={(tab: any) => setScreen(tab)} />;
+        return <TeacherAttendanceScreen onNavigate={navigate} />;
       case 'teacherDoubts':
-        return <TeacherDoubtsScreen onNavigate={(tab: any) => setScreen(tab)} />;
+        return <TeacherDoubtsScreen onNavigate={navigate} />;
       case 'teacherMaterials':
-        return <TeacherMaterialsScreen onNavigate={(tab: any) => setScreen(tab)} />;
+        return <TeacherMaterialsScreen onNavigate={navigate} />;
       case 'teacherLiveHost':
-        return <TeacherLiveHostScreen onNavigate={(tab: any) => setScreen(tab)} />;
+        return <TeacherLiveHostScreen onNavigate={navigate} />;
       case 'teacherTimetable':
-        return <TeacherTimetableScreen onNavigate={(tab: any) => setScreen(tab)} />;
+        return <TeacherTimetableScreen onNavigate={navigate} />;
       default:
         return null;
     }
   };
 
-  const showBottomNav = !['splash', 'onboarding', 'login', 'menu', 'liveClassRoom', 'teacherLiveHost'].includes(screen);
+  // The arcade is a full-screen surface: its own back arrow is the way out, so
+  // the tab bar is hidden to keep it immersive.
+  const showBottomNav = !['splash', 'onboarding', 'login', 'menu', 'liveClassRoom', 'teacherLiveHost', 'gamification'].includes(screen);
+
+  // Screens whose header runs edge-to-edge in the brand colour: the status bar
+  // inset has to match it, otherwise it reads as a white gap above the header.
+  // The arcade is a dark surface, so a light status-bar strip would read as a
+  // seam across the top of it.
+  const topInsetColor = ['dashboard', 'teacherDashboard'].includes(screen)
+    ? '#1e3a8a'
+    : screen === 'gamification'
+    ? '#070B18'
+    // Login's hero panel runs its own gradient behind the status bar, same
+    // reasoning as the dashboard: the inset colour has to match its top edge.
+    : screen === 'login'
+    ? '#152A66'
+    : theme.background;
   
-  // Conditionally render bottom nav tabs based on role
-  const isTeacher = screen.startsWith('teacher');
 
   return (
     <SafeAreaProvider>
       <PaperProvider theme={paperTheme}>
         {/* Android 16 (targetSdk 36) enforces edge-to-edge: the system bars always
             draw over the app window, so the root has to inset itself. */}
-        <SafeAreaView style={{ flex: 1, backgroundColor: theme.background }} edges={['top', 'bottom']}>
+        {/* The dashboard paints its own artwork behind the status bar, so it
+            opts out of the top inset and applies that padding itself. */}
+        <SafeAreaView
+          style={{ flex: 1, backgroundColor: topInsetColor }}
+          edges={['dashboard', 'teacherDashboard', 'login'].includes(screen) ? [] : ['top']}
+        >
+          <View style={{ flex: 1, backgroundColor: theme.background }}>
           <View style={{ flex: 1 }}>{renderScreen()}</View>
           {showBottomNav && (
+            <SafeAreaView edges={['bottom']} style={{ backgroundColor: theme.surface }}>
             <View style={[styles.bottomNav, { backgroundColor: theme.surface, borderTopColor: theme.border }]}>
               {isTeacher ? (
                 <>
-                  <TouchableOpacity style={styles.navItem} onPress={() => setScreen('teacherDashboard')}>
-                    <Home size={24} color={screen === 'teacherDashboard' ? theme.primary : theme.subtext} />
+                  <TouchableOpacity style={styles.navItem} onPress={() => navigate('teacherDashboard')}>
+                    <Home size={ms(24)} color={screen === 'teacherDashboard' ? theme.primary : theme.subtext} />
                     <Text style={[styles.navText, { color: theme.subtext }, screen === 'teacherDashboard' && { color: theme.primary, fontWeight: '700' }]}>Home</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity style={styles.navItem} onPress={() => setScreen('teacherClasses')}>
-                    <BookOpen size={24} color={screen === 'teacherClasses' ? theme.primary : theme.subtext} />
+                  <TouchableOpacity style={styles.navItem} onPress={() => navigate('teacherClasses')}>
+                    <BookOpen size={ms(24)} color={screen === 'teacherClasses' ? theme.primary : theme.subtext} />
                     <Text style={[styles.navText, { color: theme.subtext }, screen === 'teacherClasses' && { color: theme.primary, fontWeight: '700' }]}>Classes</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity style={styles.navItem} onPress={() => setScreen('teacherAssignments')}>
-                    <MessageSquare size={24} color={screen === 'teacherAssignments' ? theme.primary : theme.subtext} />
-                    <Text style={[styles.navText, { color: theme.subtext }, screen === 'teacherAssignments' && { color: theme.primary, fontWeight: '700' }]}>Assignments</Text>
+                  <TouchableOpacity style={styles.navItem} onPress={() => navigate('teacherMaterials')}>
+                    <FileText size={ms(24)} color={screen === 'teacherMaterials' ? theme.primary : theme.subtext} />
+                    <Text style={[styles.navText, { color: theme.subtext }, screen === 'teacherMaterials' && { color: theme.primary, fontWeight: '700' }]}>Course Content</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity style={styles.navItem} onPress={() => setScreen('teacherAssessments')}>
-                    <Briefcase size={24} color={screen === 'teacherAssessments' ? theme.primary : theme.subtext} />
-                    <Text style={[styles.navText, { color: theme.subtext }, screen === 'teacherAssessments' && { color: theme.primary, fontWeight: '700' }]}>Assessments</Text>
+                  <TouchableOpacity style={styles.navItem} onPress={() => navigate('teacherTimetable')}>
+                    <Clock size={ms(24)} color={screen === 'teacherTimetable' ? theme.primary : theme.subtext} />
+                    <Text style={[styles.navText, { color: theme.subtext }, screen === 'teacherTimetable' && { color: theme.primary, fontWeight: '700' }]}>My Schedule</Text>
                   </TouchableOpacity>
                 </>
               ) : (
                 <>
-                  <TouchableOpacity style={styles.navItem} onPress={() => setScreen('dashboard')}>
-                    <Home size={24} color={screen === 'dashboard' ? theme.primary : theme.subtext} />
+                  <TouchableOpacity style={styles.navItem} onPress={() => navigate('dashboard')}>
+                    <Home size={ms(24)} color={screen === 'dashboard' ? theme.primary : theme.subtext} />
                     <Text style={[styles.navText, { color: theme.subtext }, screen === 'dashboard' && { color: theme.primary, fontWeight: '700' }]}>Home</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity style={styles.navItem} onPress={() => setScreen('menu')}>
-                    <BookOpen size={24} color={screen === 'menu' ? theme.primary : theme.subtext} />
-                    <Text style={[styles.navText, { color: theme.subtext }, screen === 'menu' && { color: theme.primary, fontWeight: '700' }]}>Menu</Text>
+                  <TouchableOpacity style={styles.navItem} onPress={() => navigate('videos')}>
+                    <MonitorPlay size={ms(24)} color={screen === 'videos' ? theme.primary : theme.subtext} />
+                    <Text style={[styles.navText, { color: theme.subtext }, screen === 'videos' && { color: theme.primary, fontWeight: '700' }]}>Videos</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity style={styles.navItem} onPress={() => setScreen('doubt')}>
-                    <Bot size={24} color={screen === 'doubt' ? theme.primary : theme.subtext} />
+                  <TouchableOpacity style={styles.navItem} onPress={() => navigate('doubt')}>
+                    <Bot size={ms(24)} color={screen === 'doubt' ? theme.primary : theme.subtext} />
                     <Text style={[styles.navText, { color: theme.subtext }, screen === 'doubt' && { color: theme.primary, fontWeight: '700' }]}>AI Tutor</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity style={styles.navItem} onPress={() => setScreen('gamification')}>
-                    <Gamepad2 size={24} color={screen === 'gamification' ? theme.primary : theme.subtext} />
+                  <TouchableOpacity style={styles.navItem} onPress={() => navigate('gamification')}>
+                    <Gamepad2 size={ms(24)} color={screen === 'gamification' ? theme.primary : theme.subtext} />
                     <Text style={[styles.navText, { color: theme.subtext }, screen === 'gamification' && { color: theme.primary, fontWeight: '700' }]}>Games</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity style={styles.navItem} onPress={() => setScreen('careers')}>
-                    <Briefcase size={24} color={screen === 'careers' ? theme.primary : theme.subtext} />
+                  <TouchableOpacity style={styles.navItem} onPress={() => navigate('careers')}>
+                    <Briefcase size={ms(24)} color={screen === 'careers' ? theme.primary : theme.subtext} />
                     <Text style={[styles.navText, { color: theme.subtext }, screen === 'careers' && { color: theme.primary, fontWeight: '700' }]}>Career</Text>
                   </TouchableOpacity>
                 </>
               )}
             </View>
+            </SafeAreaView>
           )}
+          {/* Screens without the tab bar still need the home-indicator inset.
+              It carries the screen's own colour so a dark screen does not end
+              in a light strip. */}
+          {!showBottomNav && (
+            <SafeAreaView
+              edges={['bottom']}
+              style={{ backgroundColor: screen === 'gamification' ? '#070B18' : theme.background }}
+            />
+          )}
+          </View>
         </SafeAreaView>
       </PaperProvider>
     </SafeAreaProvider>
@@ -271,7 +379,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderTopWidth: 1,
     borderTopColor: '#E5E7EB',
-    paddingVertical: 12,
+    paddingVertical: vs(12),
     // Home indicator / gesture bar spacing comes from the root SafeAreaView inset.
   },
   navItem: {
@@ -279,8 +387,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   tabLabel: {
-    fontSize: 10,
-    marginTop: 4,
+    fontSize: ms(10),
+    marginTop: vs(4),
     color: '#64748B',
     fontFamily: 'Poppins-Medium',
   },
@@ -289,25 +397,25 @@ const styles = StyleSheet.create({
     fontFamily: 'Poppins-Medium',
   },
   navText: {
-    fontSize: 10,
-    marginTop: 4,
+    fontSize: ms(10),
+    marginTop: vs(4),
     color: '#6B7280',
     fontWeight: '600',
   },
   fab: {
     position: 'absolute',
     bottom: Platform.OS === 'ios' ? 100 : 80,
-    right: 20,
+    right: hs(20),
     backgroundColor: '#2563EB',
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    width: hs(56),
+    height: vs(56),
+    borderRadius: ms(28),
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: '#2563EB',
-    shadowOffset: { width: 0, height: 4 },
+    shadowOffset: { width: 0, height: vs(4) },
     shadowOpacity: 0.3,
-    shadowRadius: 8,
+    shadowRadius: ms(8),
     elevation: 5,
     zIndex: 1000,
   },

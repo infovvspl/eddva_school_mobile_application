@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { ScrollView, StyleSheet, Text, View, TouchableOpacity, ActivityIndicator, Alert, Platform, StatusBar } from 'react-native';
+import { ScrollView, StyleSheet, Text, View, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
 import { hs, vs, ms } from '../utils/responsive';
 import { Gamepad2, Calendar as CalendarIcon, Megaphone, Compass, ChevronRight, Trophy, Sparkles } from 'lucide-react-native';
 import { schoolApi } from '../utils/api';
@@ -214,7 +214,7 @@ const getStyles = (theme: any) => StyleSheet.create({
     flex: 1,
     backgroundColor: theme.background },
   
-  header: { backgroundColor: theme.headerBg, paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight || 24) + 10 : 60, paddingHorizontal: hs(20), paddingBottom: vs(30), borderBottomLeftRadius: ms(32), borderBottomRightRadius: ms(32) },
+  header: { backgroundColor: theme.headerBg, paddingTop: vs(12), paddingHorizontal: hs(20), paddingBottom: vs(30), borderBottomLeftRadius: ms(32), borderBottomRightRadius: ms(32) },
   pageTitle: { fontFamily: 'Poppins-SemiBold', fontSize: ms(28), color: theme.surface, marginBottom: vs(4) },
   pageSub: { fontFamily: 'Poppins-Regular', fontSize: ms(14), color: theme.subtext },
   
@@ -225,7 +225,7 @@ const getStyles = (theme: any) => StyleSheet.create({
   arcadeIconBox: { width: hs(56), height: vs(56), borderRadius: ms(16), backgroundColor: theme.surface, justifyContent: 'center', alignItems: 'center' },
   arcadeTextContent: { flex: 1, marginLeft: hs(16) },
   arcadeTitleRow: { flexDirection: 'row', alignItems: 'center', gap: ms(6) },
-  arcadeTitle: { fontFamily: 'Poppins-Bold', fontSize: ms(18), color: theme.surface },
+  arcadeTitle: { fontFamily: 'Poppins-Medium', fontSize: ms(18), color: theme.surface },
   arcadeSub: { fontFamily: 'Poppins-Regular', fontSize: ms(13), color: '#DDD6FE', marginTop: vs(4), lineHeight: ms(18) },
   arcadeBannerAction: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.15)', paddingVertical: vs(12) },
   arcadeBannerActionText: { fontFamily: 'Poppins-SemiBold', fontSize: ms(13), color: theme.surface, marginRight: hs(4) },
@@ -239,7 +239,7 @@ const getStyles = (theme: any) => StyleSheet.create({
   leaderboardContainer: { backgroundColor: theme.surface, borderRadius: ms(20), padding: ms(16), borderWidth: 1, borderColor: theme.border, shadowColor: theme.subtext, shadowOffset: {width: 0, height: vs(4)}, shadowOpacity: 0.05, shadowRadius: ms(8), elevation: 2 },
   leaderboardRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: vs(12), borderBottomWidth: 1, borderBottomColor: theme.background },
   rankCircle: { width: hs(36), height: vs(36), borderRadius: ms(18), justifyContent: 'center', alignItems: 'center' },
-  rankText: { fontFamily: 'Poppins-Bold', fontSize: ms(14) },
+  rankText: { fontFamily: 'Poppins-Medium', fontSize: ms(14) },
   lbInfo: { flex: 1, marginLeft: hs(12) },
   lbName: { fontFamily: 'Poppins-Medium', fontSize: ms(15), color: theme.text },
   lbClass: { fontFamily: 'Poppins-Regular', fontSize: ms(12), color: theme.subtext },
@@ -252,7 +252,7 @@ const getStyles = (theme: any) => StyleSheet.create({
   announcementHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: vs(16) },
   announcementIconBox: { width: hs(40), height: vs(40), borderRadius: ms(12), backgroundColor: '#FEF2F2', justifyContent: 'center', alignItems: 'center' },
   newBadge: { backgroundColor: '#EF4444', paddingHorizontal: hs(8), paddingVertical: vs(4), borderRadius: ms(8) },
-  newBadgeText: { fontFamily: 'Poppins-Bold', fontSize: ms(9), color: theme.surface, letterSpacing: 0.5 },
+  newBadgeText: { fontFamily: 'Poppins-Medium', fontSize: ms(9), color: theme.surface, letterSpacing: 0.5 },
   announcementTitle: { fontFamily: 'Poppins-SemiBold', fontSize: ms(15), color: theme.text, marginBottom: vs(8), lineHeight: ms(22) },
   announcementDate: { fontFamily: 'Poppins-Regular', fontSize: ms(12), color: theme.subtext },
 
@@ -261,7 +261,7 @@ const getStyles = (theme: any) => StyleSheet.create({
   eventCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: theme.surface, borderRadius: ms(16), padding: ms(12), borderWidth: 1, borderColor: theme.border, shadowColor: theme.subtext, shadowOffset: {width: 0, height: vs(2)}, shadowOpacity: 0.05, shadowRadius: ms(4), elevation: 1 },
   dateBlock: { backgroundColor: '#EFF6FF', borderRadius: ms(12), width: hs(56), height: vs(56), justifyContent: 'center', alignItems: 'center' },
   dateMonth: { fontFamily: 'Poppins-SemiBold', fontSize: ms(11), color: theme.primary, textTransform: 'uppercase' },
-  dateDay: { fontFamily: 'Poppins-Bold', fontSize: ms(18), color: theme.headerBg, marginTop: vs(-2) },
+  dateDay: { fontFamily: 'Poppins-Medium', fontSize: ms(18), color: theme.headerBg, marginTop: vs(-2) },
   eventInfo: { flex: 1, marginLeft: hs(16) },
   eventTitle: { fontFamily: 'Poppins-SemiBold', fontSize: ms(15), color: theme.text, marginBottom: vs(4) },
   eventMetaRow: { flexDirection: 'row', alignItems: 'center' },

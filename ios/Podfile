@@ -36,5 +36,25 @@ target 'SchoolStudentPortalNative' do
       :mac_catalyst_enabled => false,
       # :ccache_enabled => true
     )
+
+    # fmt 11.0.2 (pinned by RN 0.77) fails to compile under Xcode 16.3+ / 26 clang:
+    # FMT_STRING's consteval constructor is rejected as "not a constant expression".
+    # Fixed upstream in fmt 11.1; until RN bumps it, force fmt's own (supported)
+    # non-consteval path. base.h defines FMT_USE_CONSTEVAL unconditionally, so a
+    # -D flag cannot win -- the header itself has to be patched after each install.
+    fmt_base_h = File.join(installer.sandbox.root, 'fmt', 'include', 'fmt', 'base.h')
+    if File.exist?(fmt_base_h)
+      contents = File.read(fmt_base_h)
+      marker = "#if FMT_USE_CONSTEVAL\n#  define FMT_CONSTEVAL consteval"
+      patch = "#undef FMT_USE_CONSTEVAL\n#define FMT_USE_CONSTEVAL 0\n"
+      unless contents.include?(patch)
+        raise "fmt/base.h: FMT_USE_CONSTEVAL block not found" unless contents.include?(marker)
+        mode = File.stat(fmt_base_h).mode
+        File.chmod(0644, fmt_base_h)
+        File.write(fmt_base_h, contents.sub(marker, patch + marker))
+        File.chmod(mode & 0o7777, fmt_base_h)
+        Pod::UI.puts "[fmt] disabled consteval (Xcode 16.3+ workaround)".green
+      end
+    end
   end
 end

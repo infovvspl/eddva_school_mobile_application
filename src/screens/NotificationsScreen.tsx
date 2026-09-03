@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { ScrollView, StyleSheet, Text, View, TouchableOpacity, ActivityIndicator, Platform, StatusBar } from 'react-native';
+import { ScrollView, StyleSheet, Text, View, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { hs, vs, ms } from '../utils/responsive';
 import { Bell, BellDot, Check, BookOpen, Calendar, Settings, ShieldAlert, Circle, ArrowLeft } from 'lucide-react-native';
 import { schoolApi } from '../utils/api';
@@ -35,7 +35,13 @@ export function NotificationsScreen({ onNavigate }: any) {
         else if (notifs && Array.isArray(notifs.notifications)) records = notifs.notifications;
         else if (notifs && Array.isArray(notifs.results)) records = notifs.results;
         
-        setNotifications(records);
+        setNotifications(
+          records.map((n: any) => ({
+            ...n,
+            read: n.is_read ?? n.read ?? false,
+            time: n.created_at ?? n.time ?? null,
+          })),
+        );
       } catch (error) {
         console.error(error);
       } finally {
@@ -58,8 +64,7 @@ export function NotificationsScreen({ onNavigate }: any) {
 
   const handleMarkAllAsRead = async () => {
     try {
-      const unread = notifications.filter((n: any) => !n.read);
-      await Promise.all(unread.map((n: any) => schoolApi.markNotificationRead(n.id)));
+      await schoolApi.markAllNotificationsRead();
       setNotifications((prev) => prev.map((n: any) => ({ ...n, read: true })));
     } catch (err) {
       console.error(err);
@@ -132,7 +137,7 @@ export function NotificationsScreen({ onNavigate }: any) {
                     {item.title || 'Update'}
                   </Text>
                   <Text style={styles.cardDesc} numberOfLines={2}>{item.message}</Text>
-                  <Text style={styles.cardTime}>{item.time}</Text>
+                  <Text style={styles.cardTime}>{item.time ? new Date(item.time).toLocaleString() : ''}</Text>
                 </View>
 
                 {!item.read && (
@@ -153,7 +158,7 @@ const getStyles = (theme: any) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: theme.background },
-  header: { backgroundColor: theme.surface, paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight || 24) + 10 : 60, borderBottomWidth: 1, borderBottomColor: theme.border },
+  header: { backgroundColor: theme.surface, paddingTop: vs(12), borderBottomWidth: 1, borderBottomColor: theme.border },
   headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: hs(16), marginBottom: vs(16) },
   pageTitle: { fontFamily: 'Poppins-SemiBold', fontSize: ms(24), color: theme.text },
   

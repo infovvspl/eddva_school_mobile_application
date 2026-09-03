@@ -3,7 +3,7 @@ import { ScrollView, StyleSheet, Text, View, TouchableOpacity, ActivityIndicator
 import { ArrowLeft, Check, X, Clock } from 'lucide-react-native';
 import { useAppTheme } from '../context/ThemeContext';
 import { schoolApi } from '../utils/api';
-import { ms } from '../utils/responsive';
+import { hs, vs, ms } from '../utils/responsive';
 
 export function TeacherAttendanceScreen({ onNavigate }: any) {
   const { theme } = useAppTheme();
@@ -63,8 +63,8 @@ export function TeacherAttendanceScreen({ onNavigate }: any) {
     <View style={[styles.container, { backgroundColor: theme.background }]}>
       <View style={styles.headerRow}>
         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-          <TouchableOpacity onPress={() => onNavigate && onNavigate('teacherDashboard')} style={{ marginRight: 12 }}>
-            <ArrowLeft size={24} color={theme.text} />
+          <TouchableOpacity onPress={() => onNavigate && onNavigate('teacherDashboard')} style={{ marginRight: hs(12) }}>
+            <ArrowLeft size={ms(24)} color={theme.text} />
           </TouchableOpacity>
           <View>
             <Text style={[styles.title, { color: theme.text }]}>Attendance</Text>
@@ -78,9 +78,9 @@ export function TeacherAttendanceScreen({ onNavigate }: any) {
 
       <ScrollView contentContainerStyle={styles.content}>
         {loading ? (
-          <ActivityIndicator size="large" color={theme.primary} style={{ marginTop: 40 }} />
+          <ActivityIndicator size="large" color={theme.primary} style={{ marginTop: vs(40) }} />
         ) : students.length === 0 ? (
-          <Text style={{ textAlign: 'center', color: theme.subtext, marginTop: 40 }}>No students found.</Text>
+          <Text style={{ textAlign: 'center', color: theme.subtext, marginTop: vs(40) }}>No students found.</Text>
         ) : (
           students.map(student => (
           <View key={student.id} style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border, borderWidth: 1 }]}>
@@ -123,32 +123,32 @@ export function TeacherAttendanceScreen({ onNavigate }: any) {
 
 const getStyles = (theme: any) => StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f6f8ff' },
-  headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingTop: Platform.OS === 'ios' ? 50 : 20, paddingBottom: 16, backgroundColor: theme.surface, borderBottomWidth: 1, borderBottomColor: theme.border },
-  title: { fontSize: 24, fontWeight: '800', color: '#1E293B' },
-  subtitle: { fontSize: 14, color: '#64748B', marginTop: 2 },
-  submitBtn: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20 },
+  headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: hs(16), paddingTop: Platform.OS === 'ios' ? 50 : 20, paddingBottom: vs(16), backgroundColor: theme.surface, borderBottomWidth: 1, borderBottomColor: theme.border },
+  title: { fontSize: ms(24), fontWeight: '800', color: '#1E293B' },
+  subtitle: { fontSize: ms(14), color: '#64748B', marginTop: vs(2) },
+  submitBtn: { paddingHorizontal: hs(16), paddingVertical: vs(8), borderRadius: ms(20) },
   submitBtnText: { color: '#fff', fontWeight: 'bold' },
-  content: { padding: 16, paddingBottom: 100 },
+  content: { padding: ms(16), paddingBottom: vs(100) },
   card: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     backgroundColor: '#FFF',
-    borderRadius: 16,
-    padding: 12,
-    marginBottom: 12,
+    borderRadius: ms(16),
+    padding: ms(12),
+    marginBottom: vs(12),
     shadowColor: '#94a3b8',
     shadowOpacity: 0.1,
-    shadowRadius: 8,
+    shadowRadius: ms(8),
     elevation: 2,
   },
   studentInfo: { flexDirection: 'row', alignItems: 'center' },
-  avatar: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#E2E8F0', justifyContent: 'center', alignItems: 'center', marginRight: 12 },
-  avatarText: { fontSize: 16, fontWeight: 'bold', color: '#475569' },
-  studentName: { fontSize: 16, fontWeight: '700', color: '#1E293B' },
-  rollNo: { fontSize: 12, color: '#64748B', marginTop: 2 },
+  avatar: { width: hs(40), height: vs(40), borderRadius: ms(20), backgroundColor: '#E2E8F0', justifyContent: 'center', alignItems: 'center', marginRight: hs(12) },
+  avatarText: { fontSize: ms(16), fontWeight: 'bold', color: '#475569' },
+  studentName: { fontSize: ms(16), fontWeight: '700', color: '#1E293B' },
+  rollNo: { fontSize: ms(12), color: '#64748B', marginTop: vs(2) },
   actionGroup: { flexDirection: 'row' },
-  statusBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#F1F5F9', justifyContent: 'center', alignItems: 'center', marginLeft: 8 },
+  statusBtn: { width: hs(36), height: vs(36), borderRadius: ms(18), backgroundColor: '#F1F5F9', justifyContent: 'center', alignItems: 'center', marginLeft: hs(8) },
   presentActive: { backgroundColor: '#10B981' },
   lateActive: { backgroundColor: '#F59E0B' },
   absentActive: { backgroundColor: '#EF4444' },

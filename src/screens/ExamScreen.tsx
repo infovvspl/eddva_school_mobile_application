@@ -1,54 +1,50 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, SafeAreaView, Dimensions, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, SafeAreaView, Dimensions, Alert, ActivityIndicator } from 'react-native';
+import { hs, vs, ms } from '../utils/responsive';
 import { ArrowLeft, Clock, CheckCircle, ChevronLeft, ChevronRight, Check } from 'lucide-react-native';
 import { useAppTheme } from '../context/ThemeContext';
 import { schoolApi } from '../utils/api';
 
 const { width } = Dimensions.get('window');
 
-const MOCK_QUESTIONS = [
-  { id: 1, text: "What is the capital of France?", options: ["London", "Berlin", "Paris", "Madrid"] },
-  { id: 2, text: "Which element has the chemical symbol 'O'?", options: ["Gold", "Oxygen", "Osmium", "Oganesson"] },
-  { id: 3, text: "Solve for x: 2x + 5 = 15", options: ["5", "10", "2", "20"] },
-  { id: 4, text: "Who wrote 'Romeo and Juliet'?", options: ["Charles Dickens", "William Shakespeare", "Mark Twain", "Jane Austen"] },
-  { id: 5, text: "What is the powerhouse of the cell?", options: ["Nucleus", "Ribosome", "Mitochondria", "Golgi apparatus"] },
-  { id: 6, text: "What is the square root of 144?", options: ["10", "12", "14", "16"] },
-  { id: 7, text: "Which planet is known as the Red Planet?", options: ["Venus", "Mars", "Jupiter", "Saturn"] },
-  { id: 8, text: "In what year did World War II end?", options: ["1941", "1943", "1945", "1947"] },
-  { id: 9, text: "What is the chemical formula for water?", options: ["CO2", "H2O", "O2", "NaCl"] },
-  { id: 10, text: "Who painted the Mona Lisa?", options: ["Vincent van Gogh", "Pablo Picasso", "Leonardo da Vinci", "Claude Monet"] },
-];
-
 export function ExamScreen({ onNavigate, routeParams }: any) {
   const { theme } = useAppTheme();
   const [loading, setLoading] = useState(true);
-  const [questions, setQuestions] = useState<any[]>(MOCK_QUESTIONS);
+  const [questions, setQuestions] = useState<any[]>([]);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [currentIdx, setCurrentIdx] = useState(0);
   const [answers, setAnswers] = useState<Record<number, number>>({});
   const [timeLeft, setTimeLeft] = useState(3600); // 60 minutes
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const [sessionId, setSessionId] = useState<string | null>(null);
 
   useEffect(() => {
     const startExam = async () => {
       const assessmentId = routeParams?.assessmentId;
       if (!assessmentId) {
+        setLoadError('No assessment selected. Please open a test from the Assessments list.');
         setLoading(false);
         return;
       }
       try {
         const data = await schoolApi.startAssessmentAttempt(assessmentId);
+        // Every answer/submit call is scoped to the session opened here.
+        setSessionId(data?.sessionId ?? data?.data?.sessionId ?? null);
         let apiQuestions = [];
         if (data && Array.isArray(data.questions)) apiQuestions = data.questions;
         else if (data && data.data && Array.isArray(data.data.questions)) apiQuestions = data.data.questions;
         
         if (apiQuestions.length > 0) {
           setQuestions(apiQuestions);
+        } else {
+          setLoadError('This assessment has no questions yet.');
         }
         
         if (data && data.durationSeconds) setTimeLeft(data.durationSeconds);
         else if (data && data.data && data.data.durationSeconds) setTimeLeft(data.data.durationSeconds);
-      } catch (err) {
+      } catch (err: any) {
         console.error("Failed to start assessment:", err);
+        setLoadError(err?.message || 'Could not load this assessment. Please try again.');
       } finally {
         setLoading(false);
       }
@@ -82,14 +78,24 @@ export function ExamScreen({ onNavigate, routeParams }: any) {
     return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
   };
 
-  const handleSelectOption = (questionId: number, optionIdx: number) => {
+  // Options come back either as plain strings or as { id, text } objects; the
+  // API wants the option's id, so fall back to the index when there isn't one.
+  const optionId = (opt: any, idx: number): string =>
+    (opt && typeof opt === 'object' ? opt.id ?? opt.value : undefined) ?? String(idx);
+
+  const handleSelectOption = (question: any, optionIdx: number) => {
     if (isSubmitted) return;
-    setAnswers(prev => ({ ...prev, [questionId]: optionIdx }));
-    
+    setAnswers(prev => ({ ...prev, [question.id]: optionIdx }));
+
     const assessmentId = routeParams?.assessmentId;
-    if (assessmentId) {
-      schoolApi.saveAssessmentAnswer(assessmentId, { questionId, answerIndex: optionIdx }).catch(console.error);
-    }
+    if (!assessmentId || !sessionId) return;
+    schoolApi
+      .saveAssessmentAnswer(assessmentId, {
+        sessionId,
+        questionId: question.id,
+        selectedOptionIds: [optionId(question?.options?.[optionIdx], optionIdx)],
+      })
+      .catch(console.error);
   };
 
   const handleSubmit = () => {
@@ -104,12 +110,13 @@ export function ExamScreen({ onNavigate, routeParams }: any) {
           onPress: async () => {
             setIsSubmitted(true);
             const assessmentId = routeParams?.assessmentId;
-            if (assessmentId) {
-              try {
-                await schoolApi.submitAssessment(assessmentId, { answers });
-              } catch (err) { console.error("Submit error", err); }
-            } else {
-              schoolApi.submitTopicPyq('mock-topic', 'mock-exam', { answers }).catch(() => null);
+            try {
+              await schoolApi.submitAssessment(assessmentId, sessionId ? { sessionId } : {});
+            } catch (err: any) {
+              console.error("Submit error", err);
+              setIsSubmitted(false);
+              Alert.alert("Submission failed", err?.message || 'Your answers were not saved. Please try again.');
+              return;
             }
             Alert.alert("Success", "Your exam has been submitted successfully!", [
               { text: "OK", onPress: () => onNavigate('assessments') }
@@ -123,20 +130,56 @@ export function ExamScreen({ onNavigate, routeParams }: any) {
   const currentQ = questions[currentIdx];
   const isAnswered = (idx: number) => answers[questions[idx].id] !== undefined;
 
+  // Without questions there is nothing to sit: say why rather than showing a
+  // placeholder paper that cannot be submitted anywhere.
+  if (loading || loadError || questions.length === 0) {
+    return (
+      <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
+        <View style={[styles.header, { backgroundColor: theme.surface, borderBottomColor: theme.border }]}>
+          <View style={styles.headerLeft}>
+            <TouchableOpacity onPress={() => onNavigate('assessments')} style={styles.iconBtn}>
+              <ArrowLeft size={ms(24)} color={theme.text} />
+            </TouchableOpacity>
+            <Text style={[styles.title, { color: theme.text }]} numberOfLines={1}>
+              {routeParams?.title || 'Assessment'}
+            </Text>
+          </View>
+        </View>
+        <View style={styles.stateBox}>
+          {loading ? (
+            <ActivityIndicator size="large" color={theme.primary} />
+          ) : (
+            <>
+              <Text style={[styles.stateText, { color: theme.subtext }]}>
+                {loadError || 'This assessment has no questions yet.'}
+              </Text>
+              <TouchableOpacity
+                style={[styles.stateBtn, { backgroundColor: theme.primary }]}
+                onPress={() => onNavigate('assessments')}
+              >
+                <Text style={styles.stateBtnText}>Back to Assessments</Text>
+              </TouchableOpacity>
+            </>
+          )}
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
       {/* Header */}
       <View style={[styles.header, { backgroundColor: theme.surface, borderBottomColor: theme.border }]}>
         <View style={styles.headerLeft}>
           <TouchableOpacity onPress={() => onNavigate('assessments')} style={styles.iconBtn}>
-            <ArrowLeft size={24} color={theme.text} />
+            <ArrowLeft size={ms(24)} color={theme.text} />
           </TouchableOpacity>
           <Text style={[styles.title, { color: theme.text }]} numberOfLines={1}>
-            {routeParams?.title || 'Mock Exam: General Knowledge'}
+            {routeParams?.title || 'Assessment'}
           </Text>
         </View>
         <View style={[styles.timerBadge, timeLeft < 300 && { backgroundColor: '#FEE2E2' }]}>
-          <Clock size={16} color={timeLeft < 300 ? '#EF4444' : theme.primary} />
+          <Clock size={ms(16)} color={timeLeft < 300 ? '#EF4444' : theme.primary} />
           <Text style={[styles.timerText, { color: timeLeft < 300 ? '#EF4444' : theme.primary }]}>
             {formatTime(timeLeft)}
           </Text>
@@ -158,7 +201,7 @@ export function ExamScreen({ onNavigate, routeParams }: any) {
           <Text style={[styles.questionText, { color: theme.text }]}>{currentQ.text}</Text>
 
           <View style={styles.optionsList}>
-            {currentQ?.options?.map((opt: string, idx: number) => {
+            {currentQ?.options?.map((opt: any, idx: number) => {
               const selected = answers[currentQ.id] === idx;
               return (
                 <TouchableOpacity 
@@ -168,7 +211,7 @@ export function ExamScreen({ onNavigate, routeParams }: any) {
                     { backgroundColor: theme.surface, borderColor: theme.border },
                     selected && { borderColor: theme.primary, backgroundColor: theme.primarySoft }
                   ]}
-                  onPress={() => handleSelectOption(currentQ.id, idx)}
+                  onPress={() => handleSelectOption(currentQ, idx)}
                   activeOpacity={0.7}
                   disabled={isSubmitted}
                 >
@@ -176,7 +219,7 @@ export function ExamScreen({ onNavigate, routeParams }: any) {
                     {selected && <View style={[styles.radioInner, { backgroundColor: theme.primary }]} />}
                   </View>
                   <Text style={[styles.optionText, { color: theme.text }, selected && { color: theme.primary, fontWeight: '600' }]}>
-                    {opt}
+                    {typeof opt === 'string' ? opt : opt?.text ?? opt?.label ?? ''}
                   </Text>
                 </TouchableOpacity>
               );
@@ -218,7 +261,7 @@ export function ExamScreen({ onNavigate, routeParams }: any) {
           onPress={() => setCurrentIdx(prev => Math.max(0, prev - 1))}
           disabled={currentIdx === 0}
         >
-          <ChevronLeft size={20} color={currentIdx === 0 ? theme.border : theme.text} />
+          <ChevronLeft size={ms(20)} color={currentIdx === 0 ? theme.border : theme.text} />
           <Text style={[styles.footerBtnText, { color: currentIdx === 0 ? theme.border : theme.text }]}>Previous</Text>
         </TouchableOpacity>
 
@@ -228,14 +271,14 @@ export function ExamScreen({ onNavigate, routeParams }: any) {
             onPress={() => setCurrentIdx(prev => Math.min(questions.length - 1, prev + 1))}
           >
             <Text style={[styles.footerBtnText, { color: '#fff' }]}>Next</Text>
-            <ChevronRight size={20} color="#fff" />
+            <ChevronRight size={ms(20)} color="#fff" />
           </TouchableOpacity>
         ) : (
           <TouchableOpacity 
             style={[styles.footerBtn, { backgroundColor: '#10B981', borderColor: '#10B981' }]} 
             onPress={handleSubmit}
           >
-            <CheckCircle size={20} color="#fff" style={{ marginRight: 8 }} />
+            <CheckCircle size={ms(20)} color="#fff" style={{ marginRight: hs(8) }} />
             <Text style={[styles.footerBtnText, { color: '#fff' }]}>Submit</Text>
           </TouchableOpacity>
         )}
@@ -245,13 +288,35 @@ export function ExamScreen({ onNavigate, routeParams }: any) {
 }
 
 const styles = StyleSheet.create({
+  stateBox: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: ms(24),
+  },
+  stateText: {
+    fontSize: ms(15),
+    textAlign: 'center',
+    marginBottom: vs(20),
+    lineHeight: ms(22),
+  },
+  stateBtn: {
+    paddingHorizontal: hs(24),
+    paddingVertical: vs(12),
+    borderRadius: ms(12),
+  },
+  stateBtnText: {
+    color: '#fff',
+    fontWeight: '700',
+    fontSize: ms(14),
+  },
   container: { flex: 1 },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingHorizontal: hs(16),
+    paddingVertical: vs(12),
     borderBottomWidth: 1,
   },
   headerLeft: {
@@ -259,9 +324,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flex: 1,
   },
-  iconBtn: { padding: 8, marginRight: 8, marginLeft: -8 },
+  iconBtn: { padding: ms(8), marginRight: hs(8), marginLeft: hs(-8) },
   title: {
-    fontSize: 18,
+    fontSize: ms(18),
     fontWeight: '700',
     flex: 1,
   },
@@ -269,14 +334,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#EEF2FF',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
+    paddingHorizontal: hs(12),
+    paddingVertical: vs(6),
+    borderRadius: ms(16),
   },
   timerText: {
-    marginLeft: 6,
+    marginLeft: hs(6),
     fontWeight: '700',
-    fontSize: 14,
+    fontSize: ms(14),
   },
   body: {
     flex: 1,
@@ -284,102 +349,102 @@ const styles = StyleSheet.create({
   },
   questionContainer: {
     flex: 1,
-    padding: 20,
+    padding: ms(20),
   },
   qHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: vs(16),
   },
   qNumber: {
-    fontSize: 14,
+    fontSize: ms(14),
     fontWeight: '700',
     textTransform: 'uppercase',
     letterSpacing: 1,
   },
   statusBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
+    paddingHorizontal: hs(10),
+    paddingVertical: vs(4),
+    borderRadius: ms(12),
   },
   statusText: {
-    fontSize: 12,
+    fontSize: ms(12),
     fontWeight: '600',
   },
   questionText: {
-    fontSize: 20,
+    fontSize: ms(20),
     fontWeight: '600',
-    lineHeight: 28,
-    marginBottom: 32,
+    lineHeight: ms(28),
+    marginBottom: vs(32),
   },
   optionsList: {
-    gap: 12,
+    gap: ms(12),
   },
   optionBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 16,
-    borderRadius: 12,
+    padding: ms(16),
+    borderRadius: ms(12),
     borderWidth: 1,
   },
   radioOuter: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
+    width: hs(20),
+    height: vs(20),
+    borderRadius: ms(10),
     borderWidth: 2,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 16,
+    marginRight: hs(16),
   },
   radioInner: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
+    width: hs(10),
+    height: vs(10),
+    borderRadius: ms(5),
   },
   optionText: {
-    fontSize: 16,
+    fontSize: ms(16),
     flex: 1,
   },
   navigatorBox: {
-    paddingVertical: 12,
-    paddingHorizontal: 16,
+    paddingVertical: vs(12),
+    paddingHorizontal: hs(16),
     borderTopWidth: 1,
   },
   navGrid: {
-    gap: 8,
-    paddingRight: 16,
+    gap: ms(8),
+    paddingRight: hs(16),
   },
   navBox: {
-    width: 44,
-    height: 44,
-    borderRadius: 8,
+    width: hs(44),
+    height: vs(44),
+    borderRadius: ms(8),
     borderWidth: 1,
     justifyContent: 'center',
     alignItems: 'center',
   },
   navText: {
-    fontSize: 16,
+    fontSize: ms(16),
     fontWeight: '500',
   },
   footer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    padding: 16,
+    padding: ms(16),
     borderTopWidth: 1,
   },
   footerBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    borderRadius: 12,
+    paddingVertical: vs(12),
+    paddingHorizontal: hs(24),
+    borderRadius: ms(12),
     borderWidth: 1,
-    minWidth: 120,
+    minWidth: hs(120),
   },
   footerBtnText: {
-    fontSize: 16,
+    fontSize: ms(16),
     fontWeight: '600',
   },
 });

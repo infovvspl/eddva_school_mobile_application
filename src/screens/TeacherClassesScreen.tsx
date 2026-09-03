@@ -3,7 +3,7 @@ import { ScrollView, StyleSheet, Text, View, TouchableOpacity, ActivityIndicator
 import { ArrowLeft, Users, TrendingUp } from 'lucide-react-native';
 import { useAppTheme } from '../context/ThemeContext';
 import { schoolApi } from '../utils/api';
-import { ms } from '../utils/responsive';
+import { hs, vs, ms } from '../utils/responsive';
 
 export function TeacherClassesScreen({ onNavigate }: any) {
   const { theme } = useAppTheme();
@@ -41,8 +41,8 @@ export function TeacherClassesScreen({ onNavigate }: any) {
       <ScrollView contentContainerStyle={styles.content}>
         <View style={styles.headerRow}>
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <TouchableOpacity onPress={() => onNavigate && onNavigate('teacherDashboard')} style={{ marginRight: 12 }}>
-              <ArrowLeft size={24} color={theme.text} />
+            <TouchableOpacity onPress={() => onNavigate && onNavigate('teacherDashboard')} style={{ marginRight: hs(12) }}>
+              <ArrowLeft size={ms(24)} color={theme.text} />
             </TouchableOpacity>
             <View>
               <Text style={[styles.title, { color: theme.text }]}>My Classes</Text>
@@ -52,9 +52,9 @@ export function TeacherClassesScreen({ onNavigate }: any) {
         </View>
 
         {loading ? (
-          <ActivityIndicator size="large" color={theme.primary} style={{ marginTop: 40 }} />
+          <ActivityIndicator size="large" color={theme.primary} style={{ marginTop: vs(40) }} />
         ) : classes.length === 0 ? (
-          <Text style={{ textAlign: 'center', color: theme.subtext, marginTop: 40 }}>No classes assigned.</Text>
+          <Text style={{ textAlign: 'center', color: theme.subtext, marginTop: vs(40) }}>No classes assigned.</Text>
         ) : (
           classes.map(item => (
           <View key={item.id} style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border, borderWidth: 1 }]}>
@@ -66,11 +66,11 @@ export function TeacherClassesScreen({ onNavigate }: any) {
             </View>
             <View style={styles.footer}>
               <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                <Users size={ms(16)} color={theme.subtext} style={{ marginRight: 4 }} />
+                <Users size={ms(16)} color={theme.subtext} style={{ marginRight: hs(4) }} />
                 <Text style={[styles.stats, { color: theme.subtext }]}>{item.students} Students</Text>
               </View>
               <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                <TrendingUp size={ms(16)} color="#10B981" style={{ marginRight: 4 }} />
+                <TrendingUp size={ms(16)} color="#10B981" style={{ marginRight: hs(4) }} />
                 <Text style={[styles.stats, { color: '#10B981', fontWeight: 'bold' }]}>Avg {item.avgScore}</Text>
               </View>
             </View>
@@ -84,23 +84,23 @@ export function TeacherClassesScreen({ onNavigate }: any) {
 
 const getStyles = (theme: any) => StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f6f8ff' },
-  content: { padding: 16, paddingBottom: 32, paddingTop: Platform.OS === 'ios' ? 50 : 20 },
-  headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 },
-  title: { fontSize: 24, fontWeight: '800', color: '#1E293B' },
-  subtitle: { fontSize: 14, color: '#64748B', marginTop: 2 },
+  content: { padding: ms(16), paddingBottom: vs(32), paddingTop: Platform.OS === 'ios' ? 50 : 20 },
+  headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: vs(20) },
+  title: { fontSize: ms(24), fontWeight: '800', color: '#1E293B' },
+  subtitle: { fontSize: ms(14), color: '#64748B', marginTop: vs(2) },
   card: {
     backgroundColor: '#FFF',
-    borderRadius: 18,
-    padding: 16,
-    marginBottom: 16,
+    borderRadius: ms(18),
+    padding: ms(16),
+    marginBottom: vs(16),
     shadowColor: '#94a3b8',
     shadowOpacity: 0.15,
-    shadowRadius: 12,
+    shadowRadius: ms(12),
     elevation: 4,
   },
   cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
-  subject: { fontSize: 12, fontWeight: '800', color: '#4F46E5', textTransform: 'uppercase', marginBottom: 4 },
-  assignmentTitle: { fontSize: 16, fontWeight: '700', color: '#1E293B', marginBottom: 12 },
-  footer: { borderTopWidth: 1, borderTopColor: '#F1F5F9', paddingTop: 12, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  stats: { fontSize: 13, fontWeight: '500' },
+  subject: { fontSize: ms(12), fontWeight: '800', color: '#4F46E5', textTransform: 'uppercase', marginBottom: vs(4) },
+  assignmentTitle: { fontSize: ms(16), fontWeight: '700', color: '#1E293B', marginBottom: vs(12) },
+  footer: { borderTopWidth: 1, borderTopColor: '#F1F5F9', paddingTop: vs(12), flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  stats: { fontSize: ms(13), fontWeight: '500' },
 });

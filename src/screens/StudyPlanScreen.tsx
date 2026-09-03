@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { ScrollView, StyleSheet, Text, View, TouchableOpacity, ActivityIndicator, Alert, Platform, StatusBar } from 'react-native';
+import { ScrollView, StyleSheet, Text, View, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
 import { hs, vs, ms } from '../utils/responsive';
 import { CheckCircle2, Circle, PlayCircle, BookOpen, Clock, FileText, Brain, Trophy, Zap, ChevronRight, Check, AlertCircle, RefreshCw, TrendingDown, Target, HelpCircle, Map, Trash2 } from 'lucide-react-native';
 import { schoolApi } from '../utils/api';
@@ -140,7 +140,7 @@ export function StudyPlanScreen({ onNavigate }: any) {
             <Text style={styles.statVal}>{plan?.stats?.estTime || 0}m</Text>
             <Text style={styles.statLbl}>Est. Time</Text>
           </View>
-          <TouchableOpacity style={styles.revisionBtn} onPress={() => onNavigate('aiStudy')}>
+          <TouchableOpacity style={styles.revisionBtn} onPress={() => { const next = plan?.items?.find((i: any) => !i.completed) ?? plan?.items?.[0]; onNavigate('aiStudy', { topicId: next?.topicId || next?.topic?.id, title: next?.title || next?.topic?.name }); }}>
             <PlayCircle size={ms(16)} color={theme.surface} style={{ marginRight: hs(6) }} />
             <Text style={styles.revisionBtnText}>Start Revision</Text>
           </TouchableOpacity>
@@ -149,8 +149,8 @@ export function StudyPlanScreen({ onNavigate }: any) {
         <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: vs(16)}}>
           <Text style={[styles.sectionTitle, {marginBottom: 0}]}>Today's Roadmap</Text>
           <View style={{flexDirection: 'row', gap: hs(16), alignItems: 'center'}}>
-            <TouchableOpacity onPress={handleRegenerate} style={{padding: 4}}><RefreshCw size={ms(18)} color={theme.subtext} /></TouchableOpacity>
-            <TouchableOpacity onPress={handleClear} style={{padding: 4}}><Trash2 size={ms(18)} color="#EF4444" /></TouchableOpacity>
+            <TouchableOpacity onPress={handleRegenerate} style={{padding: ms(4)}}><RefreshCw size={ms(18)} color={theme.subtext} /></TouchableOpacity>
+            <TouchableOpacity onPress={handleClear} style={{padding: ms(4)}}><Trash2 size={ms(18)} color="#EF4444" /></TouchableOpacity>
           </View>
         </View>
         <View style={styles.roadmapContainer}>
@@ -375,7 +375,7 @@ const getStyles = (theme: any) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: theme.background },
-  header: { paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight || 24) + 10 : 60, backgroundColor: theme.surface, borderBottomWidth: 1, borderBottomColor: theme.border },
+  header: { paddingTop: vs(12), backgroundColor: theme.surface, borderBottomWidth: 1, borderBottomColor: theme.border },
   pageTitle: { fontFamily: 'Poppins-SemiBold', fontSize: ms(24), color: theme.text, paddingHorizontal: hs(16), marginBottom: vs(12) },
   
   tabContainer: { paddingHorizontal: hs(16), paddingBottom: vs(16), gap: ms(8), flexDirection: 'row' },
